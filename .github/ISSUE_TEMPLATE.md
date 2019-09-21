@@ -1,4 +1,4 @@
-* cards version:
+* grab version:
 * Python version:
 * Operating System:
 
