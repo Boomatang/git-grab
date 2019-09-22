@@ -3,7 +3,6 @@ import click
 import grab
 import json
 import pathlib
-from tabulate import tabulate
 
 PREFIX = "GRAB"
 
@@ -71,7 +70,6 @@ def list_repos(domain, filter_, detail):
     # TODO this needs much working out to get it working fully
     filters = filter_
 
-    print(filters)
     grab.list_repos(detail)
 
     print("\nI have no idea how to create the filters or do the domain stuff")

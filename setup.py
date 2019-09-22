@@ -38,6 +38,7 @@ setup(
         "click",  # for CLI
         "tabulate",  # for CLI
         "tinydb",  # for DB
+        "pony", # for DB
         "dataclasses; python_version<'3.7'",
     ],
     include_package_data=True,

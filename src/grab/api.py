@@ -6,9 +6,13 @@ from pprint import pprint
 import click
 import tinydb
 from typing import List
+from tabulate import tabulate
 
 from dataclasses import dataclass, field, asdict
 
+from pony.orm import select, db_session, commit
+
+from grab.model import setup_db_connection, Repo
 
 __all__ = [
     "Card",
@@ -45,9 +49,28 @@ class SshInfo:
         return asdict(self)
 
 
+@dataclass
+class DbRepo:
+    name: str = None
+    path: str = None
+    clone: str = None
+
+    @classmethod
+    def from_dict(cls, d):
+        return SshInfo(**d)
+
+    def to_dict(self):
+        return asdict(self)
+
+
 def update_repos():
     """Update all the repos in the system"""
     print("Update all the repos")
+    print("Get repos for data store")
+    print("Change into repo")
+    print("Ensure the repo is on the master branch")
+    print("\tIf repo is not on the mater branch, Fix that")
+    print("Get pull information")
 
 
 def update_repo(name):
@@ -57,6 +80,7 @@ def update_repo(name):
 
 def add_repos(file_name, url, base_path):
     base_path_check(base_path)
+    setup_db_connection()
 
     if file_name:
         add_repos_from_file(file_name, base_path)
@@ -75,19 +99,26 @@ def add_repos_from_file(file_path, base_path):
     process_contents(contents["site"], base_path)
 
 
-
 def add_repo_from_url(url, base_path):
     """Add repos from a file"""
     print("Create repo from a URL")
     contents = parse_url_content(url)
-    process_contents(contents['site'], base_path)
+    if contents is not None:
+        process_contents(contents["site"], base_path)
 
 
 def list_repos(detail):
     """List all the repos in the system"""
-    print("List all the repos")
+    setup_db_connection()
     if detail:
         print("There is more detail been printed")
+    with db_session:
+        repos = select(r for r in Repo)
+
+        if len(repos) > 0:
+            print(format_print_table(repos))
+        else:
+            print("No entries found")
 
 
 def remove_repo(name):
@@ -153,13 +184,17 @@ def parse_line_contents(line):
     else:
         print(f"File line is wrong format \n ==> '{line}'")
 
+
 def parse_url_content(url):
     if url.startswith("git@"):
         data = [parse_ssh_line(url)]
+        return compile_line_data(data)
+
     else:
         print(f"URL is wrong format \n ==> '{url}'")
 
-    return compile_line_data(data)
+    return None
+
 
 def parse_ssh_line(line):
     ssh = line.strip("\n")
@@ -173,10 +208,13 @@ def parse_ssh_line(line):
     data = SshInfo(site, user, repo, ssh)
     return data
 
+
 def process_contents(contents, base_path):
     folders, folders_and_ssh = create_required_folders(contents, base_path)
     create_user_folders(folders)
     errors = clone_git_repos(folders_and_ssh)
+
+    add_repos_to_db_if_not_in_errors(contents, base_path, errors)
 
     if len(errors) > 0:
         print_git_clone_errors(errors)
@@ -241,17 +279,17 @@ def clone_git_repos(folders_and_ssh):
 def git_clone(ssh):
     message = None
 
-    print(f"Cloning {ssh} to {os.getcwd()}...\t", end='')
-    value = subprocess.run(['git', 'clone', ssh], capture_output=True)
+    print(f"Cloning {ssh} to {os.getcwd()}...\t", end="")
+    value = subprocess.run(["git", "clone", ssh], capture_output=True)
 
     if value.returncode != 0:
-        message = {'repo': ssh,
-                   'error': value.stderr.decode()}
+        message = {"repo": ssh, "error": value.stderr.decode()}
         print("Failed")
     else:
         print("Completed")
 
     return message
+
 
 def print_git_clone_errors(errors):
     print()
@@ -260,10 +298,52 @@ def print_git_clone_errors(errors):
         print(f"Error cloning {error['repo']}")
         print("#" * 30)
         print("\nFollow error was raised by git clone")
-        print("-" *30)
-        print(error['error'])
-        print("-" *30)
+        print("-" * 30)
+        print(error["error"])
+        print("-" * 30)
         print()
+
+
+def add_repos_to_db_if_not_in_errors(contents, base_path, errors):
+    data = []
+
+    errors = get_list_of_error_urls(errors)
+    print(errors)
+
+    for site in contents.keys():
+        for user in contents[site].keys():
+            for repo in contents[site][user].keys():
+
+                data.append(
+                    DbRepo(
+                        repo,
+                        str(pathlib.Path(base_path, site, user, repo)),
+                        contents[site][user][repo],
+                    )
+                )
+    with db_session:
+        for d in data:
+            if d.clone not in errors:
+                Repo(name=d.name, path=d.path, clone=d.clone)
+
+        commit()
+
+
+def get_list_of_error_urls(errors):
+    data = []
+    for error in errors:
+        data.append(error["repo"])
+
+    return data
+
+
+def format_print_table(repos):
+    header = ['Name', 'Path']
+    data = []
+    for repo in repos:
+        data.append((repo.name, repo.path))
+
+    return tabulate(data, header)
 
 @dataclass
 class Card:
