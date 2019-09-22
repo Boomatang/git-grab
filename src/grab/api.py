@@ -65,12 +65,28 @@ class DbRepo:
 
 def update_repos():
     """Update all the repos in the system"""
-    print("Update all the repos")
-    print("Get repos for data store")
-    print("Change into repo")
-    print("Ensure the repo is on the master branch")
-    print("\tIf repo is not on the mater branch, Fix that")
-    print("Get pull information")
+    setup_db_connection()
+    repos = get_repo_paths_from_db()
+
+    for repo in repos:
+        work_with_repo(repo)
+
+
+def work_with_repo(repo):
+    print(f"Updating in {repo}")
+    os.chdir(repo)
+    past_branch = None
+
+    if not is_on_branch():
+        past_branch = stash_changes_and_checkout_master()
+
+    if is_on_branch():
+        do_git_pull()
+        restore_past_branch(past_branch)
+    else:
+        print("Check repo status, error when updating")
+        print(f"Repo location: {repo}")
+        exit(1)
 
 
 def update_repo(name):
@@ -219,6 +235,7 @@ def process_contents(contents, base_path):
     if len(errors) > 0:
         print_git_clone_errors(errors)
 
+
 def compile_line_data(line_data: List[SshInfo]):
     data = {"site": {}}
 
@@ -235,7 +252,7 @@ def compile_line_data(line_data: List[SshInfo]):
     return data
 
 
-def create_required_folders(contents: List[SshInfo], base_path):
+def create_required_folders(contents, base_path):
     paths = []
     locations = []
     for site in contents.keys():
@@ -321,12 +338,17 @@ def add_repos_to_db_if_not_in_errors(contents, base_path, errors):
                         contents[site][user][repo],
                     )
                 )
-    with db_session:
-        for d in data:
-            if d.clone not in errors:
-                Repo(name=d.name, path=d.path, clone=d.clone)
 
-        commit()
+    add_repos_not_in_errors(data, errors)
+
+
+@db_session
+def add_repos_not_in_errors(data, errors):
+    for d in data:
+        if d.clone not in errors:
+            Repo(name=d.name, path=d.path, clone=d.clone)
+
+    commit()
 
 
 def get_list_of_error_urls(errors):
@@ -338,12 +360,84 @@ def get_list_of_error_urls(errors):
 
 
 def format_print_table(repos):
-    header = ['Name', 'Path']
+    header = ["Name", "Path"]
     data = []
     for repo in repos:
         data.append((repo.name, repo.path))
 
     return tabulate(data, header)
+
+
+def stash_changes_and_checkout_master():
+    output = subprocess.run(["git", "status", "-s"], capture_output=True)
+    past_branch = get_branch_name()
+    if len(output.stdout) > 0:
+        status = subprocess.run(["git", "stash"], capture_output=True)
+        status.check_returncode()
+
+    branch = subprocess.run(["git", "checkout", "master"], capture_output=True)
+    branch.check_returncode()
+
+    return past_branch
+
+
+def restore_past_branch(branch):
+    if branch is not None:
+        status = subprocess.run(["git", "checkout", branch], capture_output=True)
+        status.check_returncode()
+
+    if is_on_branch(branch):
+        status = subprocess.run(["git", "stash", "pop"], capture_output=True)
+        status.check_returncode()
+
+
+def do_git_pull():
+    status = subprocess.run(["git", "pull"], capture_output=True)
+    if status.returncode != 0:
+        print(status.stderr.decode())
+        exit(1)
+    else:
+        print(status.stdout.decode())
+
+
+def get_branch_name():
+    """
+    This expects to be in git repo.
+    :return: branch name
+    """
+    branch = subprocess.run(["git", "branch"], capture_output=True)
+    stdout = branch.stdout.decode()
+    split = stdout.split("\n")
+    output = None
+    for branch in split:
+        print(branch)
+        if branch.startswith("* "):
+            branch = branch.split("* ")
+            output = branch[1]
+
+    return output
+
+
+def is_on_branch(branch="master"):
+    """
+    This expects to be in git repo.
+    :return: True if on master branch
+    """
+    status = subprocess.run(["git", "branch"], capture_output=True)
+    stdout = status.stdout.decode()
+    split = stdout.split("\n")
+    for entry in split:
+        if entry.startswith("* "):
+            if entry.endswith(branch):
+                return True
+            else:
+                return False
+
+
+@db_session
+def get_repo_paths_from_db():
+    return select(r.path for r in Repo)[:]
+
 
 @dataclass
 class Card:
