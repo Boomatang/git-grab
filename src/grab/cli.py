@@ -22,7 +22,7 @@ def grab_cli(ctx):
 
 
 @grab_cli.command(help="Update all repos")
-@click.option('-n', '--name', help="Name repo to be updated")
+@click.option("-n", "--name", help="Name repo to be updated")
 def update(name):
 
     if name:
