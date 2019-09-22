@@ -1,5 +1,6 @@
 import pathlib
 import os
+import shutil
 import subprocess
 from pprint import pprint
 
@@ -10,7 +11,7 @@ from tabulate import tabulate
 
 from dataclasses import dataclass, field, asdict
 
-from pony.orm import select, db_session, commit
+from pony.orm import select, db_session, commit, delete
 
 from grab.model import setup_db_connection, Repo
 
@@ -139,17 +140,38 @@ def list_repos(detail):
 
 def remove_repo(name):
     """Remove a repo from the system defaults to one"""
+    setup_db_connection()
     print(f"Removing a repo: {name}")
+    repo: Repo = get_repo_by_name_from_db(name)
+
+    # check status of repo
+    check_repo_status_ok_or_exit(repo.path)
+
+    # remove files
+    forcefully_remove_repo_folders(repo.path)
+    # ensure files have been removed
+    if check_folders_have_been_removed(repo.path):
+        # remove entry from db
+        remove_repo_from_db(repo.id)
+    else:
+        print(f"Unable to remove folder for {repo.name}")
+        exit(1)
+
+    print("Repo removed.")
 
 
 def remove_all_repos():
     """Remove a repo from the system defaults to one"""
-    x = 1
+    setup_db_connection()
+    names = get_repo_names()
+    with db_session:
+        for name in names:
+            remove_repo(name)
 
-    while x < 11:
 
-        print(f"Removing a repo: {x}")
-        x += 1
+@db_session
+def get_repo_names():
+    return select(r.name for r in Repo)
 
 
 def base_path_check(base_path):
@@ -368,10 +390,21 @@ def format_print_table(repos):
     return tabulate(data, header)
 
 
-def stash_changes_and_checkout_master():
+def git_status():
+    """
+    Checks for git status
+    :return: True if there is no uncommitted files
+    """
     output = subprocess.run(["git", "status", "-s"], capture_output=True)
+    if len(output.stdout) == 0:
+        return True
+    else:
+        return False
+
+
+def stash_changes_and_checkout_master():
     past_branch = get_branch_name()
-    if len(output.stdout) > 0:
+    if not git_status():
         status = subprocess.run(["git", "stash"], capture_output=True)
         status.check_returncode()
 
@@ -437,6 +470,45 @@ def is_on_branch(branch="master"):
 @db_session
 def get_repo_paths_from_db():
     return select(r.path for r in Repo)[:]
+
+
+@db_session
+def remove_repo_from_db(id):
+    delete(r for r in Repo if r.id == id)
+    commit()
+
+
+def check_folders_have_been_removed(path):
+    repo = pathlib.Path(path)
+
+    if not repo.exists():
+        return True
+    else:
+        return False
+
+
+def forcefully_remove_repo_folders(path):
+    shutil.rmtree(path)
+
+
+def check_repo_status_ok_or_exit(path):
+    os.chdir(path)
+    if not git_status():
+        if not click.confirm("Repo has uncommitted changes. Proceed to remove Repo."):
+            print("Cancelled by user.")
+            print("System Exit")
+            exit(0)
+
+
+@db_session
+def get_repo_by_name_from_db(name):
+    result = select(r for r in Repo if r.name == name)[:]
+
+    if len(result) != 1:
+        print("To many repos found")
+        return None
+    else:
+        return result[0]
 
 
 @dataclass

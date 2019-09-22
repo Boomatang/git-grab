@@ -14,11 +14,14 @@ class Repo(db.Entity):
 
 
 def setup_db_connection():
-    path = check_config_path_exists()
-    filename = pathlib.Path(path, "repos")
-    filename = str(filename)
-    db.bind(provider="sqlite", filename=filename, create_db=True)
-    db.generate_mapping(create_tables=True)
+    try:
+        path = check_config_path_exists()
+        filename = pathlib.Path(path, "repos")
+        filename = str(filename)
+        db.bind(provider="sqlite", filename=filename, create_db=True)
+        db.generate_mapping(create_tables=True)
+    except pony.orm.core.BindingError:
+        print("Soft error database connection exists")
 
 
 def check_config_path_exists():
