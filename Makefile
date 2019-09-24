@@ -35,6 +35,13 @@ lint: ## check style with flake8
 test: ## run tests quickly with the default Python
 	pytest
 
+report: ## get coverage report saved in html format
+	pytest --cov=src --cov-report=html
+
+black: ## run the black formater
+	black src
+	black tests
+
 tox:  ## alias so "make tox" works
 	tox
 
