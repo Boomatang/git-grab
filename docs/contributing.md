@@ -33,8 +33,8 @@ it.
 
 ### Write Documentation
 
-cards could always use more documentation, whether as part of the
-official cards docs, in docstrings, or even on the web in blog posts,
+grab could always use more documentation, whether as part of the
+official grab docs, in docstrings, or even on the web in blog posts,
 articles, and such.
 
 
@@ -54,9 +54,9 @@ If you are proposing a feature:
 Get Started!
 ------------
 
-Ready to contribute? Here's how to set up cards for local development.
+Ready to contribute? Here's how to set up grab for local development.
 
-1.  Fork the cards repo on GitHub.
+1.  Fork the grab repo on GitHub.
 2.  Clone your fork locally:
 
         $ git clone git@github.com:your_name_here/cards.git
@@ -117,7 +117,7 @@ Deploying
 A reminder for the maintainers on how to deploy. Make sure all your
 changes are committed (including an entry in docs/history.md).
 
-Update versions in setup.py and cards/\_\_init\_\_.py.
+Update versions in setup.py and grab/\_\_init\_\_.py.
 
 Then run:
 

@@ -49,7 +49,7 @@ formats.
 
 0.1.5 (2018-03-16)
 ------------------
-- (internal) change version version handling in `setup.py` to read it from `cards/__init__.py`
+- (internal) change version version handling in `setup.py` to read it from `grab/__init__.py`
 - (internal) take out versions from requirements_dev.txt
 - (internal) refacter tests directory into cli and cardsdb directories
 - (internal) finish tracer bullet tests for both API and CLI
@@ -63,7 +63,7 @@ formats.
 0.1.3 (2018-03-09)
 ------------------
 
--   Running cards with no command now runs list instead of help.
+-   Running grab with no command now runs list instead of help.
 
 0.1.2 (2018-03-07)
 ------------------

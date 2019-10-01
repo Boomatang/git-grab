@@ -2,10 +2,8 @@ import pathlib
 import os
 import shutil
 import subprocess
-from pprint import pprint
 
 import click
-import tinydb
 from typing import List
 from tabulate import tabulate
 
@@ -13,19 +11,10 @@ from dataclasses import dataclass, field, asdict
 
 from pony.orm import select, db_session, commit, delete
 
+from grab.helper import is_on_branch, get_branch_name
 from grab.model import setup_db_connection, Repo
 
 __all__ = [
-    "Card",
-    "set_db_path",
-    "get_db_path",
-    "add_card",
-    "get_card",
-    "list_cards",
-    "count",
-    "update_card",
-    "delete_card",
-    "delete_all",
     "update_repos",
     "update_repo",
     "add_repos",
@@ -64,6 +53,16 @@ class DbRepo:
         return asdict(self)
 
 
+# Tested #################################################################
+
+def update_repo(name):
+    """Update all the repos in the system"""
+    print(f"Update repo {name}")
+
+##################################################################
+
+
+
 def update_repos():
     """Update all the repos in the system"""
     setup_db_connection()
@@ -90,9 +89,6 @@ def work_with_repo(repo):
         exit(1)
 
 
-def update_repo(name):
-    """Update all the repos in the system"""
-    print(f"Update repo {name}")
 
 
 def add_repos(file_name, url, base_path):
@@ -433,40 +429,6 @@ def do_git_pull():
         print(status.stdout.decode())
 
 
-def get_branch_name():
-    """
-    This expects to be in git repo.
-    :return: branch name
-    """
-    branch = subprocess.run(["git", "branch"], capture_output=True)
-    stdout = branch.stdout.decode()
-    split = stdout.split("\n")
-    output = None
-    for branch in split:
-        print(branch)
-        if branch.startswith("* "):
-            branch = branch.split("* ")
-            output = branch[1]
-
-    return output
-
-
-def is_on_branch(branch="master"):
-    """
-    This expects to be in git repo.
-    :return: True if on master branch
-    """
-    status = subprocess.run(["git", "branch"], capture_output=True)
-    stdout = status.stdout.decode()
-    split = stdout.split("\n")
-    for entry in split:
-        if entry.startswith("* "):
-            if entry.endswith(branch):
-                return True
-            else:
-                return False
-
-
 @db_session
 def get_repo_paths_from_db():
     return select(r.path for r in Repo)[:]
@@ -509,111 +471,3 @@ def get_repo_by_name_from_db(name):
         return None
     else:
         return result[0]
-
-
-@dataclass
-class Card:
-    summary: str = None
-    owner: str = None
-    priority: int = None
-    done: bool = None
-    id: int = field(default=None, compare=False)
-
-    @classmethod
-    def from_dict(cls, d):
-        return Card(**d)
-
-    def to_dict(self):
-        return asdict(self)
-
-
-_db = None
-_db_path = None
-
-
-def set_db_path(db_path=None):
-    global _db
-    global _db_path
-    if db_path is None:
-        _db_path = pathlib.Path().home() / ".cards_db.json"
-    else:
-        _db_path = db_path
-    _db = tinydb.TinyDB(_db_path)
-
-
-def get_db_path():
-    return _db_path
-
-
-def add_card(card: Card) -> int:
-    """Add a card, return the id of card."""
-    card.id = _db.insert(card.to_dict())
-    _db.update(card.to_dict(), doc_ids=[card.id])
-    return card.id
-
-
-def get_card(card_id: int) -> Card:
-    """Return a card with a matching id."""
-    return Card.from_dict(_db.get(doc_id=card_id))
-
-
-def list_cards(filter=None) -> List[Card]:
-    """Return a list of all grab."""
-    q = tinydb.Query()
-    if filter:
-        noowner = filter.get("noowner", None)
-        owner = filter.get("owner", None)
-        priority = filter.get("priority", None)
-        done = filter.get("done", None)
-    else:
-        noowner = None
-        owner = None
-        priority = None
-        done = None
-    if noowner and owner:
-        results = _db.search(
-            (q.owner == owner)
-            | (q.owner == None)
-            | (q.owner == "")  # noqa : "is None" doesn't work for TinyDb
-        )
-    elif noowner or owner == "":
-        results = _db.search((q.owner == None) | (q.owner == ""))  # noqa
-    elif owner:
-        results = _db.search(q.owner == owner)
-    elif priority:
-        results = _db.search((q.priority != None) & (q.priority <= priority))  # noqa
-    else:
-        results = _db
-
-    if done is None:
-        # return all grab
-        return [Card.from_dict(t) for t in results]
-    elif done:
-        # only done grab
-        return [Card.from_dict(t) for t in results if t["done"]]
-    else:
-        # only not done grab
-        return [Card.from_dict(t) for t in results if not t["done"]]
-
-
-def count(noowner=None, owner=None, priority=None, done=None) -> int:
-    """Return the number of grab in db."""
-    filter = {"noowner": noowner, "owner": owner, "priority": priority, "done": done}
-    return len(list_cards(filter=filter))
-
-
-def update_card(card_id: int, card_mods: Card) -> None:
-    """Update a card with modifications."""
-    d = card_mods.to_dict()
-    changes = {k: v for k, v in d.items() if v is not None}
-    _db.update(changes, doc_ids=[card_id])
-
-
-def delete_card(card_id: int) -> None:
-    """Remove a card from db with given card_id."""
-    _db.remove(doc_ids=[card_id])
-
-
-def delete_all() -> None:
-    """Remove all tasks from db."""
-    _db.purge()

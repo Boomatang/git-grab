@@ -1,146 +1,107 @@
-import cards
-from cards import Card
+import subprocess
+import sys
+
+import grab
+import grab.helper
 import pytest
 
 
-@pytest.fixture(scope='module', autouse=True)
-def db_module(tmp_path_factory):
-    '''A db that can be used for all tests'''
-    db_dir = tmp_path_factory.mktemp('tmp_db_dir')
-    db_location = db_dir / '.cards_db.json'
-    cards.set_db_path(db_location)
+# CompletedProcess(args=['git', 'branch'], returncode=0, stdout=b'* master\n', stderr=b'')
 
 
-@pytest.fixture()
-def db_empty(db_module):
-    cards.delete_all()
+class MockResponse:
+    args = ["git", "branch"]
+    returncode = 0
+    stdout = b"* master\n"
+    stderr = b""
 
 
-def test_add_card(db_empty):
-    c = Card(summary='something', owner='okken')
-    id = cards.add_card(c)
-    assert id is not None
-    assert cards.count() == 1
+@pytest.fixture
+def mock_response(monkeypatch):
+    def mockreturn(*args, **kwargs):
+
+        return MockResponse()
+
+    monkeypatch.setattr(subprocess, "run", mockreturn)
 
 
-@pytest.fixture()
-def db_non_empty(db_empty):
-    some_cards = (Card(summary='first item'),
-                  Card(summary='second item'),
-                  Card(summary='third item'))
-    ids = [cards.add_card(c) for c in some_cards]
-    return {'initial_cards': some_cards, 'ids': ids}
+def test_is_on_branch(mock_response):
+    assert grab.helper.is_on_branch() == True
 
 
-def test_get_card(db_empty):
-    c = Card(summary='something', owner='okken')
-    id = cards.add_card(c)
-
-    retrieved_card = cards.get_card(id)
-
-    assert retrieved_card == c
-    assert retrieved_card.id == id
+def test_is_on_branch_not_dev_branch(mock_response):
+    assert grab.helper.is_on_branch("dev") == False
 
 
-def test_list(db_empty):
-    some_cards = [Card(summary='one'),
-                  Card(summary='two')]
-    for c in some_cards:
-        cards.add_card(c)
+@pytest.mark.parametrize("branch", [("master", True), ("dev", False)])
+def test_get_branch_name(branch, mock_response):
+    name = grab.helper.get_branch_name()
+    # print(name)
+    assert (name == branch[0]) == branch[1]
 
-    all_cards = cards.list_cards()
-    assert all_cards == some_cards
+def test_update_repo(capsys):
+    grab.update_repo('Sample')
 
+    captured = capsys.readouterr()
 
-def test_list_filter_by_priority(db_empty):
-    some_cards = [Card(summary='one', priority=2),
-                  Card(summary='two'),
-                  Card(summary='three', priority=1), ]
-    for c in some_cards:
-        cards.add_card(c)
-
-    one_and_above = cards.list_cards(filter={'priority': 1})
-    two_and_above = cards.list_cards(filter={'priority': 2})
-    one, two, three = some_cards
-    assert three in one_and_above
-
-    assert one in two_and_above
-    assert three in two_and_above
-    assert two not in two_and_above
+    assert captured.out == 'Update repo Sample\n'
 
 
-def test_count(db_empty):
-    some_cards = [Card(summary='one'),
-                  Card(summary='two')]
-    for c in some_cards:
-        cards.add_card(c)
+def test_parse_line_contents_SSH_type():
+    sample = 'git@github.com:Sample/Repo.git'
 
-    assert cards.count() == 2
+    result = grab.api.parse_line_contents(sample)
 
+    assert type(result) == grab.api.SshInfo
+    assert result.repo == 'Repo'
+    assert result.user == 'Sample'
+    assert result.ssh == 'git@github.com:Sample/Repo.git'
+    assert result.site == 'github.com'
 
-@pytest.fixture(scope='module')
-def four_items(db_module):
-    cards.delete_all()
-    cards.add_card(Card(summary='one', owner='brian'))
-    cards.add_card(Card(summary='two', owner='brian', done=True))
-    cards.add_card(Card(summary='three', owner='okken', done=True))
-    cards.add_card(Card(summary='three', owner='okken'))
-    cards.add_card(Card(summary='four'))
+def test_parse_line_contents_HTTPS_type(capsys):
+    sample = 'https;//github.com/Sample/Repo.git'
 
+    result = grab.api.parse_line_contents(sample)
 
-def test_count_no_owner(four_items):
-    assert cards.count(noowner=True) == 1
+    captured = capsys.readouterr()
 
+    assert captured.out == 'File line is wrong format \n ==> \'https;//github.com/Sample/Repo.git\'\n'
+    assert result is None
 
-def test_count_owner(four_items):
-    assert cards.count(owner='brian') == 2
+def test_parse_line_contents_not_valid_type(capsys):
+    sample = 'Not Valid URL type'
 
+    result = grab.api.parse_line_contents(sample)
 
-def test_count_done(four_items):
-    assert cards.count(done=True) == 2
+    captured = capsys.readouterr()
 
+    assert captured.out == 'File line is wrong format \n ==> \'Not Valid URL type\'\n'
+    assert result is None
 
-def test_count_not_done(four_items):
-    assert cards.count(done=False) == 3
+def test_parse_url_content_SSH_type():
+    sample = 'git@github.com:Sample/Repo.git'
+    expected ={'site': {'github.com': {'Sample': {'Repo': 'git@github.com:Sample/Repo.git'}}}}
 
+    result = grab.api.parse_url_content(sample)
 
-def test_update(db_non_empty):
-    # GIVEN a card known to be in the db
-    all_cards = cards.list_cards()
-    a_card = all_cards[0]
+    assert result == expected
 
-    # WHEN we update() the card with new info
-    cards.update_card(a_card.id, Card(owner='okken', done=True))
+def test_parse_url_content_HTTPS_type(capsys):
+    sample = 'https;//github.com/Sample/Repo.git'
 
-    # THEN we can retrieve the card with get() and
-    # and it has all of our changes
-    updated_card = cards.get_card(a_card.id)
-    expected = Card(summary=a_card.summary, owner='okken', done=True)
-    assert updated_card == expected
+    result = grab.api.parse_url_content(sample)
 
+    captured = capsys.readouterr()
 
-def test_delete(db_non_empty):
-    # GIVEN a non empty db
-    a_card = cards.list_cards()[0]
-    id = a_card.id
-    count_before = cards.count()
+    assert captured.out == 'URL is wrong format \n ==> \'https;//github.com/Sample/Repo.git\'\n'
+    assert result is None
 
-    # WHEN we delete one item
-    cards.delete_card(id)
-    count_after = cards.count()
+def test_parse_url_content_not_valid_type(capsys):
+    sample = 'Not Valid URL type'
 
-    # THEN the card is no longer in the db
-    all_cards = cards.list_cards()
-    assert a_card not in all_cards
-    assert count_after == count_before - 1
+    result = grab.api.parse_url_content(sample)
 
+    captured = capsys.readouterr()
 
-def test_delete_all(db_non_empty):
-    # GIVEN a non empty db
-
-    # WHEN we delete_all()
-    cards.delete_all()
-
-    # THEN the count is 0
-    count = cards.count()
-    assert count == 0
+    assert captured.out == 'URL is wrong format \n ==> \'Not Valid URL type\'\n'
+    assert result is None

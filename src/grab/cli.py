@@ -1,8 +1,5 @@
-import os
 import click
 import grab
-import json
-import pathlib
 
 PREFIX = "GRAB"
 

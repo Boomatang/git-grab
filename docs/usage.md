@@ -5,7 +5,7 @@ Cards is implemented as a command line application.
 
 Console Help
 -------------
-To invoke the usage on the commandline call `cards --help`
+To invoke the usage on the commandline call `grab --help`
 Here is the output from the version 0.1.10:
 
 ```
@@ -26,7 +26,7 @@ Commands:
   update  update card
 ```
 
-To get help on the commands options and arguements use `cards [command] --help`.
+To get help on the commands options and arguements use `grab [command] --help`.
 
 Here are a few...
 
@@ -83,10 +83,10 @@ Basic Actions
 
 | Action                | Commandline    |
 |-----------------------|----------------|
-| add a card            | `cards add "name of the task in strings"` |
-| show your cards       | `cards list` |
-| delete a card         | `cards delete [id]` |
-| count your cards      | `cards count` |
+| add a card            | `grab add "name of the task in strings"` |
+| show your cards       | `grab list` |
+| delete a card         | `grab delete [id]` |
+| count your cards      | `grab count` |
 
 Options
 ---------
