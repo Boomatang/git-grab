@@ -220,13 +220,38 @@ def parse_line_contents(line):
 
 def parse_url_content(url):
     if url.startswith("git@"):
-        data = [parse_ssh_line(url)]
-        return compile_line_data(data)
-
+        return work_with_SSH_url(url)
+    elif url.startswith("https"):
+        return work_with_http_url(url)
     else:
         print(f"URL is wrong format \n ==> '{url}'")
 
     return None
+
+
+def work_with_http_url(http):
+    data = [parse_http_line(http)]
+    return compile_line_data(data)
+
+
+def work_with_SSH_url(ssh):
+    data = [parse_ssh_line(ssh)]
+    return compile_line_data(data)
+
+
+def parse_http_line(line):
+    http = line.strip("\n")
+    split = line.split("://")
+    split = split[1].split(".")
+    split = split[:-1]
+    split = ".".join(split)
+    split = split.split("/")
+    site = split[0]
+    user = split[1]
+    repo = split[2]
+    data = SshInfo(site, user, repo, http)
+    print(data)
+    return data
 
 
 def parse_ssh_line(line):

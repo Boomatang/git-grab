@@ -3,6 +3,11 @@ import grab
 
 PREFIX = "GRAB"
 
+path_message = (
+    "A path is required, set system variable 'export GRAB_PATH=/path/to/code' or pass in the path using "
+    "the '--path' keyword"
+)
+
 
 @click.group(
     invoke_without_command=False,
@@ -39,7 +44,7 @@ def add(file_, url, path):
         exit(1)
 
     if path is None:
-        print("A path is required, set system var or pass it in")
+        print(path_message)
         exit(1)
 
     if file_ is None and url is None:
