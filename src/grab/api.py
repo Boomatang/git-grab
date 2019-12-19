@@ -55,12 +55,13 @@ class DbRepo:
 
 # Tested #################################################################
 
+
 def update_repo(name):
     """Update all the repos in the system"""
     print(f"Update repo {name}")
 
-##################################################################
 
+##################################################################
 
 
 def update_repos():
@@ -87,8 +88,6 @@ def work_with_repo(repo):
         print("Check repo status, error when updating")
         print(f"Repo location: {repo}")
         exit(1)
-
-
 
 
 def add_repos(file_name, url, base_path):

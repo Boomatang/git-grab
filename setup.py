@@ -23,14 +23,14 @@ def find_version(*file_paths):
 
 
 setup(
-    name="grab",
+    name="git-grab",
     version=find_version("src", "grab", "__init__.py"),
-    description="Project task tracking / todo list.",
+    description="Git Helper Tool",
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
     author="Jim Fitzpatrick",
     python_requires=">=3.6.0",
-    url="https://github.com/okken/pytest-md.git",
+    url="https://github.com/boomatang/git-grab.git",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     entry_points={"console_scripts": ["grab=grab.cli:grab_cli"]},
@@ -38,7 +38,7 @@ setup(
         "click",  # for CLI
         "tabulate",  # for CLI
         "tinydb",  # for DB
-        "pony", # for DB
+        "pony",  # for DB
         "dataclasses; python_version<'3.7'",
     ],
     include_package_data=True,
