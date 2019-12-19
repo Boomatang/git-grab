@@ -39,9 +39,8 @@ def add(file_, url, path):
         exit(1)
 
     if path is None:
-        path = "/tmp"
-        # print("A path is required, set system var or pass it in")
-        # exit(1)
+        print("A path is required, set system var or pass it in")
+        exit(1)
 
     if file_ is None and url is None:
         print("A file or url is required")
