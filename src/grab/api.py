@@ -439,9 +439,9 @@ def restore_past_branch(branch):
         status = subprocess.run(["git", "checkout", branch], capture_output=True)
         status.check_returncode()
 
-    if is_on_branch(branch):
-        status = subprocess.run(["git", "stash", "pop"], capture_output=True)
-        status.check_returncode()
+        if is_on_branch(branch):
+            status = subprocess.run(["git", "stash", "pop"], capture_output=True)
+            status.check_returncode()
 
 
 def do_git_pull():
