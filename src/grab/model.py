@@ -1,6 +1,7 @@
 import pathlib
 
-from pony.orm import *
+from pony.orm import Required, PrimaryKey, Database
+from pony.orm.core import BindingError
 
 
 db = Database()
@@ -20,7 +21,7 @@ def setup_db_connection():
         filename = str(filename)
         db.bind(provider="sqlite", filename=filename, create_db=True)
         db.generate_mapping(create_tables=True)
-    except pony.orm.core.BindingError:
+    except BindingError:
         print("Soft error database connection exists")
 
 

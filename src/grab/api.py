@@ -7,7 +7,7 @@ import click
 from typing import List
 from tabulate import tabulate
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 
 from pony.orm import select, db_session, commit, delete
 

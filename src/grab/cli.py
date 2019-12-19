@@ -70,7 +70,6 @@ def add(file_, url, path):
 @click.option("-d", "--detail", is_flag=True, help="Add more detail to the output")
 def list_repos(domain, filter_, detail):
     # TODO this needs much working out to get it working fully
-    filters = filter_
 
     grab.list_repos(detail)
 

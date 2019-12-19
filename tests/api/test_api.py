@@ -1,5 +1,4 @@
 import subprocess
-import sys
 
 import grab
 import grab.helper
@@ -26,11 +25,11 @@ def mock_response(monkeypatch):
 
 
 def test_is_on_branch(mock_response):
-    assert grab.helper.is_on_branch() == True
+    assert grab.helper.is_on_branch() is True
 
 
 def test_is_on_branch_not_dev_branch(mock_response):
-    assert grab.helper.is_on_branch("dev") == False
+    assert grab.helper.is_on_branch("dev") is False
 
 
 @pytest.mark.parametrize("branch", [("master", True), ("dev", False)])
