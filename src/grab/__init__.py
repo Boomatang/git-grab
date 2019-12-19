@@ -2,6 +2,6 @@
 
 """Top-level package for grab."""
 
-__version__ = "0.1.1-SNAPSHOT"
+__version__ = "0.1.2"
 
 from .api import *  # noqa
