@@ -36,8 +36,6 @@ setup(
     entry_points={"console_scripts": ["grab=grab.cli:grab_cli"]},
     install_requires=[
         "click",  # for CLI
-        "tabulate",  # for CLI
-        "tinydb",  # for DB
         "pony",  # for DB
         "dataclasses; python_version<'3.7'",
     ],
