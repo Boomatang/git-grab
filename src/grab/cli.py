@@ -93,3 +93,13 @@ def remove(name, all):
             "Are you really sure? This removes all the repos from the system."
         ):
             grab.remove_all_repos()
+
+@grab_cli.command(help="Add remote users fork. This feature is only working with github.com, on public repos and ssh "
+                       "routes. Requires the Git clone ssh/url string.")
+@click.argument('fork_path')
+@click.option("-p", "--path", envvar=f"{PREFIX}_PATH", help="Base path for repos")
+def fork(fork_path, path):
+    if path is None:
+        print(path_message)
+        exit(1)
+    grab.fork(fork_path, path)

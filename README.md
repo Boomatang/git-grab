@@ -23,7 +23,8 @@ Usage
 
 - Main usage
 ```
-grad add -u <url-to-repo>
+grab add -u <url-to-repo>
+grab fork <url-to-forked-repo>
 grab --help
 grab <command> --help
 ```
