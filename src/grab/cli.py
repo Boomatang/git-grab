@@ -16,7 +16,7 @@ path_message = (
         "auto_envvar_prefix": PREFIX,
     },
 )
-@click.version_option(version=grab.__version__)
+@click.version_option(version=grab.version())
 @click.pass_context
 def grab_cli(ctx):
     """Run the grab application."""

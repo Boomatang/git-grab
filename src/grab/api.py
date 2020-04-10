@@ -13,6 +13,7 @@ from dataclasses import dataclass, asdict
 
 from pony.orm import select, db_session, commit, delete
 
+import grab
 from grab.helper import is_on_branch, get_branch_name
 from grab.model import setup_db_connection, Repo
 
@@ -23,7 +24,8 @@ __all__ = [
     "list_repos",
     "remove_repo",
     "remove_all_repos",
-    "fork"
+    "fork",
+    "version"
 ]
 
 
@@ -578,3 +580,24 @@ def get_username_and_repo(fork_path):
             repo = key
 
     return username, repo
+
+def version():
+    ver = grab.__version__.split(' ')
+    ver = ver[0]
+    releases = get_releases()
+
+    if ver not in releases:
+        release = f"{grab.__version__} - Experimental Version"
+    elif ver == releases[0]:
+        release = f"{grab.__version__}"
+    else:
+        release = f"{grab.__version__} - Newer version is available"
+
+    return release
+
+def get_releases():
+    response = requests.get("https://pypi.python.org/pypi/git-grab/json")
+    data = response.json()
+    releases = list(data['releases'].keys())
+    releases = sorted(releases, reverse=True)
+    return releases
