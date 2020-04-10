@@ -25,7 +25,7 @@ __all__ = [
     "remove_repo",
     "remove_all_repos",
     "fork",
-    "version"
+    "version",
 ]
 
 
@@ -501,6 +501,7 @@ def get_repo_by_name_from_db(name):
     else:
         return result[0]
 
+
 def fork(fork_path, src=None):
     print(f"Adding Fork: {fork_path}")
 
@@ -511,7 +512,7 @@ def fork(fork_path, src=None):
 
     data = get_api_repo_data(username, repo)
 
-    if data['fork'] == False:
+    if data["fork"] == False:
         print("Repo is not a fork. Aborting")
         return
 
@@ -520,17 +521,15 @@ def fork(fork_path, src=None):
     change_to_parent_repo(src, parent)
     run_git_remote_commands(username, fork_path)
 
+
 def get_parent_repo_data(data):
-    parent_tmp = data['parent']['full_name'].split('/')
-    parent = {
-        'user': parent_tmp[0],
-        'repo': parent_tmp[1],
-        'site': 'github.com'
-    }
+    parent_tmp = data["parent"]["full_name"].split("/")
+    parent = {"user": parent_tmp[0], "repo": parent_tmp[1], "site": "github.com"}
     return parent
 
+
 def change_to_parent_repo(src, parent):
-    parent_dir = pathlib.Path(src, parent['site'], parent['user'], parent['repo'])
+    parent_dir = pathlib.Path(src, parent["site"], parent["user"], parent["repo"])
 
     # TODO Make this add the fork repo
     if not parent_dir.is_dir():
@@ -540,37 +539,43 @@ def change_to_parent_repo(src, parent):
 
     os.chdir(parent_dir)
 
+
 def run_git_remote_commands(username, fork_path):
-    output = subprocess.run(['git', 'remote', 'add', username, fork_path], capture_output=True)
+    output = subprocess.run(
+        ["git", "remote", "add", username, fork_path], capture_output=True
+    )
     exit_on_subprocess_error(output)
 
-    output = subprocess.run(['git', 'remote'], capture_output=True)
+    output = subprocess.run(["git", "remote"], capture_output=True)
     exit_on_subprocess_error(output)
 
-    remotes = output.stdout.decode().split('\n')
+    remotes = output.stdout.decode().split("\n")
     if username in remotes:
         print(f"New remote has been added: {username} :: {fork_path}")
+
 
 def exit_on_subprocess_error(subprocess_output):
     if len(subprocess_output.stderr) > 0:
         print(subprocess_output.stderr.decode())
         exit(2)
 
+
 def get_api_repo_data(username, repo):
-    api = 'https://api.github.com/repos'
+    api = "https://api.github.com/repos"
     response = requests.get(f"{api}/{username}/{repo}")
     if response.status_code != 200:
         print("Error in connection to github.com api")
         return
     return response.json()
 
+
 def get_username_and_repo(fork_path):
     username = None
     repo = None
     contents = parse_url_content(fork_path)
-    site = contents['site']
+    site = contents["site"]
     # TODO This needs to fail out if the site is not github.com
-    github = site['github.com']
+    github = site["github.com"]
     if len(github.keys()) == 1:
         for key in github.keys():
             username = key
@@ -581,8 +586,9 @@ def get_username_and_repo(fork_path):
 
     return username, repo
 
+
 def version():
-    ver = grab.__version__.split(' ')
+    ver = grab.__version__.split(" ")
     ver = ver[0]
     releases = get_releases()
 
@@ -595,9 +601,10 @@ def version():
 
     return release
 
+
 def get_releases():
     response = requests.get("https://pypi.python.org/pypi/git-grab/json")
     data = response.json()
-    releases = list(data['releases'].keys())
+    releases = list(data["releases"].keys())
     releases = sorted(releases, reverse=True)
     return releases

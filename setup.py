@@ -37,6 +37,7 @@ setup(
     install_requires=[
         "click",  # for CLI
         "pony",  # for DB
+        "requests",
         "dataclasses; python_version<'3.7'",
     ],
     include_package_data=True,
