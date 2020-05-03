@@ -2,6 +2,8 @@ import pathlib
 import os
 import shutil
 import subprocess
+import time
+import json
 from pprint import pprint
 
 import requests
@@ -21,15 +23,21 @@ __all__ = [
     "update_repos",
     "update_repo",
     "add_repos",
-    "list_repos",
+    # "list_repos",
     "remove_repo",
     "remove_all_repos",
     "fork",
     "version",
+    "generate",
+    "show_paths",
+    "list_repos"
 ]
 
+HOST = pathlib.Path.home()
+CONFIG_FOLDER = pathlib.Path(HOST, ".config", "grab")
+GRAB_PATH_LOCATION = pathlib.Path(CONFIG_FOLDER, "paths.json")
+GRAB_REPOS_LOCATION = pathlib.Path(CONFIG_FOLDER, "repos.json")
 
-@dataclass
 class SshInfo:
     site: str = None
     user: str = None
@@ -124,18 +132,18 @@ def add_repo_from_url(url, base_path):
         process_contents(contents["site"], base_path)
 
 
-def list_repos(detail):
-    """List all the repos in the system"""
-    setup_db_connection()
-    if detail:
-        print("There is more detail been printed")
-    with db_session:
-        repos = select(r for r in Repo)
-
-        if len(repos) > 0:
-            print(format_print_table(repos))
-        else:
-            print("No entries found")
+# def list_repos(detail):
+#     """List all the repos in the system"""
+#     setup_db_connection()
+#     if detail:
+#         print("There is more detail been printed")
+#     with db_session:
+#         repos = select(r for r in Repo)
+#
+#         if len(repos) > 0:
+#             print(format_print_table(repos))
+#         else:
+#             print("No entries found")
 
 
 def remove_repo(name):
@@ -603,8 +611,194 @@ def version():
 
 
 def get_releases():
-    response = requests.get("https://pypi.python.org/pypi/git-grab/json")
-    data = response.json()
-    releases = list(data["releases"].keys())
-    releases = sorted(releases, reverse=True)
-    return releases
+    # response = requests.get("https://pypi.python.org/pypi/git-grab/json")
+    # data = response.json()
+    # releases = list(data["releases"].keys())
+    # releases = sorted(releases, reverse=True)
+    # return releases
+    return ['0.0.0']
+
+def generate(grab_path, paths, new_file):
+    locations = create_paths_file(new_file, grab_path, paths)
+
+    print("Paths been scanned:\n\t", end='')
+    print('\n\t'.join(locations))
+    repos = find_repos_in_locations(locations)
+    create_repos_file(repos)
+
+def create_repos_file(repos):
+    data = get_raw_data(repos)
+    print(f"{len(data)} repos found")
+    orgs = sorted_orgs(data)
+    group_repos = grouped_repos(orgs, data)
+    final = sorted_repos_list(orgs, group_repos, data)
+    result = {'repos': final, 'orgs': orgs}
+    GRAB_REPOS_LOCATION.write_text(json.dumps(result, indent=2, sort_keys=True))
+
+def find_repos_in_locations(locations):
+    repos = []
+    hold = None
+    for path in locations:
+        for current, b, c in os.walk(path):
+            if hold is not None and current.startswith(hold):
+                continue
+
+            if is_git_directory(current):
+                repos.append(current)
+                hold = current
+    return repos
+
+def get_raw_data(repos):
+    data = []
+    for repo in repos:
+        data.append(build_repo_object(repo))
+    return data
+
+def sorted_orgs(data):
+    orgs = []
+    for point in data:
+        if point['org'] not in orgs:
+            orgs.append(point['org'])
+    orgs = sorted(orgs)
+    return orgs
+
+
+def grouped_repos(orgs, data):
+    group_repos = {}
+    for org in orgs:
+        group_repos.setdefault(org, [])
+
+        for point in data:
+            if point['org'] == org:
+                group_repos[org].append(point['repo'])
+        group_repos[org] = sorted(group_repos[org])
+    return group_repos
+
+def sorted_repos_list(orgs, group_repos, data):
+    final = []
+    index = 1
+    # I know this is really bad for loop
+    for org in orgs:
+        for repo in group_repos[org]:
+            for point in data:
+                if point['repo'] == repo and point['org'] == org:
+                    point['index'] = index
+                    index += 1
+                    point['display'] = f"{point['org']}/{point['repo']}"
+                    final.append(point)
+    return final
+
+def build_repo_object(repo):
+    repo = pathlib.Path(repo)
+    name = repo.parts[-1]
+    org = repo.parts[-2]
+    site = repo.parts[-3]
+    return {'repo': name, 'org': org, 'site': site, 'location': str(repo)}
+
+def create_paths_file(new_file, grab_path, paths):
+    locations = []
+    if garb_paths_file_exists() and not new_file:
+        print("reading paths from existing")
+        locations = get_existing_locations()
+    else:
+        # Blank out the existing file
+        GRAB_PATH_LOCATION.write_text('')
+
+    check_locations(grab_path, paths, locations)
+    locations = sorted(locations)
+    dict_file = {'created': time.strftime('%l:%M%p %z %d/%m/%Y'),'dirs': locations}
+    GRAB_PATH_LOCATION.write_text(json.dumps(dict_file))
+
+    return locations
+
+def get_existing_locations():
+    with open(str(GRAB_PATH_LOCATION), 'r') as file:
+        data = json.load(file)
+    return data['dirs']
+
+def check_locations(grab_path, paths, locations):
+    if not path_exists(grab_path):
+        print("Environment Variable GRAB_PATH to does not point to an real location, Skipping...")
+    else:
+        if grab_path not in locations:
+            locations.append(grab_path)
+
+    for path in paths:
+        if not path_exists(path):
+            print(f"{path} is not a real location, Skipping...")
+        else:
+            if path not in locations:
+                locations.append(path)
+
+def path_exists(path):
+    path = pathlib.Path(path)
+    if path.is_dir():
+        return True
+    else:
+        return False
+
+def garb_paths_file_exists():
+    return GRAB_PATH_LOCATION.is_file()
+
+def is_git_directory(path = '.'):
+    return subprocess.call(['git', '-C', path, 'status'], stderr=subprocess.STDOUT, stdout = open(os.devnull, 'w')) == 0
+
+def show_paths():
+    with open(GRAB_PATH_LOCATION, "r") as paths:
+        data = json.load(paths)
+
+    for dir in data['dirs']:
+        print(dir)
+
+def list_repos(org=None, wide=False):
+    if not file_exists(GRAB_REPOS_LOCATION):
+        print("No repos file exists, run grab list --generate to create this file.")
+        print("Aborting...")
+        exit(1)
+    with open(GRAB_REPOS_LOCATION, "r") as paths:
+        data = json.load(paths)
+
+    if org is not None:
+        data = filtered_data(org, data)
+    if wide:
+        print(wide_list(data))
+    else:
+        print(narrow_list(data))
+
+def filtered_data(org: str, data):
+    key = [a for a in data['orgs'] if a.lower() == org.lower()]
+    if len(key) <= 0:
+        print(f"No information found for {org}")
+        print("Aborting...")
+        exit(1)
+
+    key = key[0]
+    result = []
+    for repo in data['repos']:
+        if repo['org'] == key:
+            result.append(repo)
+    return {'repos': result}
+
+def file_exists(path_to_file: pathlib.Path):
+    return path_to_file.is_file()
+
+def narrow_list(data):
+    header = ['#', 'Org/Repo']
+    result_data = []
+    for entry in data['repos']:
+        result_data.append((entry['index'], entry['display']))
+
+    table = tabulate(result_data, header)
+    return table
+
+def wide_list(data):
+    header = ['#', 'Org/Repo', 'Location', 'Site']
+    result_data = []
+    for entry in data['repos']:
+        result_data.append((entry['index'],
+                            entry['display'],
+                            entry['location'],
+                            entry['site']))
+
+    table = tabulate(result_data, header)
+    return table
