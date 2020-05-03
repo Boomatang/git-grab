@@ -22,16 +22,6 @@ def grab_cli(ctx):
     """Run the grab application."""
 
 
-@grab_cli.command(help="Update all repos")
-@click.option("-n", "--name", help="Name repo to be updated")
-def update(name):
-
-    if name:
-        grab.update_repo(name)
-    else:
-        grab.update_repos()
-
-
 @grab_cli.command(
     help="Add repos from file"
 )  # TODO add this back in when it is 7.1^ --> , no_args_is_help=True)
@@ -53,9 +43,10 @@ def add(file_, url, path):
 
     grab.add_repos(file_, url, path)
 
+
 @grab_cli.command(name="list", help="List all the current repos")
 @click.option("-o", "--org", help="Show only repos matching the org.")
-@click.option("--wide", is_flag=True, help="Show more details about the repos")
+@click.option("-w", "--wide", is_flag=True, help="Show more details about the repos")
 @click.option("--generate", is_flag=True, help="Generate the repo_list.yaml file.")
 @click.option("-p", "paths", multiple=True, help="Paths to be included in the generate function.")
 @click.option("--show-paths", "show", is_flag=True, help="List the paths from grab_paths.yaml that is used to generate "
@@ -90,47 +81,6 @@ def list_repos(org, wide, generate, paths, show, new_file, grab_path):
         grab.show_paths()
     else:
         grab.list_repos(org, wide)
-
-'''
-@grab_cli.command(name="list", help="List all the current repos")
-@click.option(
-    "--domain",
-    type=click.Choice(["Site", "ORG", "Username"]),
-    help="List the top level data under " "that domain.",
-)
-@click.option(
-    "-f",
-    "--filter",
-    "filter_",
-    multiple=True,
-    help="Filter the list by multiple values",
-)
-@click.option("-d", "--detail", is_flag=True, help="Add more detail to the output")
-def list_repos(domain, filter_, detail):
-    # TODO this needs much working out to get it working fully
-
-    grab.list_repos(detail)
-
-    print("\nI have no idea how to create the filters or do the domain stuff")
-'''
-
-@grab_cli.command(help="Remove a repo")
-@click.argument("name")
-@click.confirmation_option(
-    prompt="Are you sure you want to remove the repo? This can not be undo."
-)
-@click.option(
-    "--all", is_flag=True, help="Removes all the repos from the set up", hidden=True
-)
-def remove(name, all):
-    if not all:
-        grab.remove_repo(name)
-
-    if all:
-        if click.confirm(
-            "Are you really sure? This removes all the repos from the system."
-        ):
-            grab.remove_all_repos()
 
 
 @grab_cli.command(

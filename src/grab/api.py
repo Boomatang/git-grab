@@ -13,19 +13,11 @@ from tabulate import tabulate
 
 from dataclasses import dataclass, asdict
 
-from pony.orm import select, db_session, commit, delete
-
 import grab
 from grab.helper import is_on_branch, get_branch_name
-from grab.model import setup_db_connection, Repo
 
 __all__ = [
-    "update_repos",
-    "update_repo",
     "add_repos",
-    # "list_repos",
-    "remove_repo",
-    "remove_all_repos",
     "fork",
     "version",
     "generate",
@@ -66,46 +58,8 @@ class DbRepo:
         return asdict(self)
 
 
-# Tested #################################################################
-
-
-def update_repo(name):
-    """Update all the repos in the system"""
-    print(f"Update repo {name}")
-
-
-##################################################################
-
-
-def update_repos():
-    """Update all the repos in the system"""
-    setup_db_connection()
-    repos = get_repo_paths_from_db()
-
-    for repo in repos:
-        work_with_repo(repo)
-
-
-def work_with_repo(repo):
-    print(f"Updating in {repo}")
-    os.chdir(repo)
-    past_branch = None
-
-    if not is_on_branch():
-        past_branch = stash_changes_and_checkout_master()
-
-    if is_on_branch():
-        do_git_pull()
-        restore_past_branch(past_branch)
-    else:
-        print("Check repo status, error when updating")
-        print(f"Repo location: {repo}")
-        exit(1)
-
-
 def add_repos(file_name, url, base_path):
     base_path_check(base_path)
-    setup_db_connection()
 
     if file_name:
         add_repos_from_file(file_name, base_path)
@@ -132,54 +86,8 @@ def add_repo_from_url(url, base_path):
         process_contents(contents["site"], base_path)
 
 
-# def list_repos(detail):
-#     """List all the repos in the system"""
-#     setup_db_connection()
-#     if detail:
-#         print("There is more detail been printed")
-#     with db_session:
-#         repos = select(r for r in Repo)
-#
-#         if len(repos) > 0:
-#             print(format_print_table(repos))
-#         else:
-#             print("No entries found")
-
-
-def remove_repo(name):
-    """Remove a repo from the system defaults to one"""
-    setup_db_connection()
-    print(f"Removing a repo: {name}")
-    repo: Repo = get_repo_by_name_from_db(name)
-
-    # check status of repo
-    check_repo_status_ok_or_exit(repo.path)
-
-    # remove files
-    forcefully_remove_repo_folders(repo.path)
-    # ensure files have been removed
-    if check_folders_have_been_removed(repo.path):
-        # remove entry from db
-        remove_repo_from_db(repo.id)
-    else:
-        print(f"Unable to remove folder for {repo.name}")
-        exit(1)
-
-    print("Repo removed.")
-
-
-def remove_all_repos():
-    """Remove a repo from the system defaults to one"""
-    setup_db_connection()
-    names = get_repo_names()
-    with db_session:
-        for name in names:
-            remove_repo(name)
-
-
-@db_session
 def get_repo_names():
-    return select(r.name for r in Repo)
+    return []
 
 
 def base_path_check(base_path):
@@ -262,7 +170,11 @@ def parse_http_line(line):
     site = split[0]
     user = split[1]
     repo = split[2]
-    data = SshInfo(site, user, repo, http)
+    data = SshInfo()
+    data.site = site
+    data.user = user
+    data.repo = repo
+    data.ssh = http
     print(data)
     return data
 
@@ -276,7 +188,11 @@ def parse_ssh_line(line):
     user = split[0]
     split = split[1].split(".")
     repo = split[0]
-    data = SshInfo(site, user, repo, ssh)
+    data = SshInfo()
+    data.site = site
+    data.user = user
+    data.repo = repo
+    data.ssh = ssh
     return data
 
 
@@ -284,8 +200,6 @@ def process_contents(contents, base_path):
     folders, folders_and_ssh = create_required_folders(contents, base_path)
     create_user_folders(folders)
     errors = clone_git_repos(folders_and_ssh)
-
-    add_repos_to_db_if_not_in_errors(contents, base_path, errors)
 
     if len(errors) > 0:
         print_git_clone_errors(errors)
@@ -376,36 +290,6 @@ def print_git_clone_errors(errors):
         print()
 
 
-def add_repos_to_db_if_not_in_errors(contents, base_path, errors):
-    data = []
-
-    errors = get_list_of_error_urls(errors)
-    print(errors)
-
-    for site in contents.keys():
-        for user in contents[site].keys():
-            for repo in contents[site][user].keys():
-
-                data.append(
-                    DbRepo(
-                        repo,
-                        str(pathlib.Path(base_path, site, user, repo)),
-                        contents[site][user][repo],
-                    )
-                )
-
-    add_repos_not_in_errors(data, errors)
-
-
-@db_session
-def add_repos_not_in_errors(data, errors):
-    for d in data:
-        if d.clone not in errors:
-            Repo(name=d.name, path=d.path, clone=d.clone)
-
-    commit()
-
-
 def get_list_of_error_urls(errors):
     data = []
     for error in errors:
@@ -466,17 +350,6 @@ def do_git_pull():
         print(status.stdout.decode())
 
 
-@db_session
-def get_repo_paths_from_db():
-    return select(r.path for r in Repo)[:]
-
-
-@db_session
-def remove_repo_from_db(id):
-    delete(r for r in Repo if r.id == id)
-    commit()
-
-
 def check_folders_have_been_removed(path):
     repo = pathlib.Path(path)
 
@@ -497,17 +370,6 @@ def check_repo_status_ok_or_exit(path):
             print("Cancelled by user.")
             print("System Exit")
             exit(0)
-
-
-@db_session
-def get_repo_by_name_from_db(name):
-    result = select(r for r in Repo if r.name == name)[:]
-
-    if len(result) != 1:
-        print("To many repos found")
-        return None
-    else:
-        return result[0]
 
 
 def fork(fork_path, src=None):
@@ -611,12 +473,12 @@ def version():
 
 
 def get_releases():
-    # response = requests.get("https://pypi.python.org/pypi/git-grab/json")
-    # data = response.json()
-    # releases = list(data["releases"].keys())
-    # releases = sorted(releases, reverse=True)
-    # return releases
-    return ['0.0.0']
+    response = requests.get("https://pypi.python.org/pypi/git-grab/json")
+    data = response.json()
+    releases = list(data["releases"].keys())
+    releases = sorted(releases, reverse=True)
+    return releases
+
 
 def generate(grab_path, paths, new_file):
     locations = create_paths_file(new_file, grab_path, paths)
