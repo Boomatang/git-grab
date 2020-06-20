@@ -36,8 +36,8 @@ setup(
     entry_points={"console_scripts": ["grab=grab.cli:grab_cli"]},
     install_requires=[
         "click",  # for CLI
-        "pony",  # for DB
         "requests",
+        "tabulate"
         "dataclasses; python_version<'3.7'",
     ],
     include_package_data=True,
