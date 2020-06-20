@@ -479,7 +479,7 @@ def get_releases():
     # releases = list(data["releases"].keys())
     # releases = sorted(releases, reverse=True)
     # return releases
-    return ['1.1.1']
+    return grab.__releases__
 
 def generate(grab_path, paths, new_file):
     locations = create_paths_file(new_file, grab_path, paths)
