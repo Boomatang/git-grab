@@ -94,3 +94,10 @@ def fork(fork_path, path):
         print(path_message)
         exit(1)
     grab.fork(fork_path, path)
+
+@grab_cli.command('path', help="Get the system path for a Repo. The REPO is a combination of "
+                               "org/repo in the same format given by the list command or the line number given by the "
+                               "list command.")
+@click.argument("repo")
+def path_to_repo(repo):
+    grab.path_to_repo(repo)

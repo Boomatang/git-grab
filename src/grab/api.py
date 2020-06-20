@@ -22,7 +22,8 @@ __all__ = [
     "version",
     "generate",
     "show_paths",
-    "list_repos"
+    "list_repos",
+    "path_to_repo"
 ]
 
 HOST = pathlib.Path.home()
@@ -473,12 +474,12 @@ def version():
 
 
 def get_releases():
-    response = requests.get("https://pypi.python.org/pypi/git-grab/json")
-    data = response.json()
-    releases = list(data["releases"].keys())
-    releases = sorted(releases, reverse=True)
-    return releases
-
+    # response = requests.get("https://pypi.python.org/pypi/git-grab/json")
+    # data = response.json()
+    # releases = list(data["releases"].keys())
+    # releases = sorted(releases, reverse=True)
+    # return releases
+    return ['1.1.1']
 
 def generate(grab_path, paths, new_file):
     locations = create_paths_file(new_file, grab_path, paths)
@@ -664,3 +665,45 @@ def wide_list(data):
 
     table = tabulate(result_data, header)
     return table
+
+
+def path_to_repo(repo):
+    if is_number(repo):
+        path = get_path(id=int(repo))
+    else:
+        path = get_path(path=repo)
+
+    print(path)
+
+def is_number(value):
+    try:
+        test = int(value)
+        return True
+    except:
+        return False
+
+
+def get_path(id=None, path=None):
+    records = load_records()
+    result = None
+
+    if id:
+        for record in records:
+            if record['index'] == id:
+                result = record['location']
+                break
+
+    if path:
+        for record in records:
+            if record['display'].lower() == path.lower():
+                result = record['location']
+                break
+
+    if result is None:
+        return f"No Repo entry found for \"{path}\""
+    return result
+
+def load_records():
+    with open(GRAB_REPOS_LOCATION, "r") as paths:
+        output = json.load(paths)
+    return output['repos']

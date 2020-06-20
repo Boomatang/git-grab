@@ -104,3 +104,19 @@ $ grab list --org boomatang
 2  Boomatang/git-grab
 
 ```
+
+### Path to Repos
+It is possible to get the system path to a repo using the `grab path`
+command.
+
+The example below opens the git-grab repo by stating the org/repo or the
+list number.
+```
+$ grab path Boomatang/git-grab
+<path/to/repo/git-grab>
+```
+or
+```
+$ grab path 2
+<path/to/repo/git-grab>
+```
