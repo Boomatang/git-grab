@@ -109,8 +109,9 @@ $ grab list --org boomatang
 It is possible to get the system path to a repo using the `grab path`
 command.
 
-The example below opens the git-grab repo by stating the org/repo or the
-list number.
+The example below opens the git-grab repo by stating the org/repo, the
+list number or project url. The project url can have the path to a file
+or pull request.
 ```
 $ grab path Boomatang/git-grab
 <path/to/repo/git-grab>
@@ -118,5 +119,10 @@ $ grab path Boomatang/git-grab
 or
 ```
 $ grab path 2
+<path/to/repo/git-grab>
+```
+or
+```
+ $ grab path http(s)://github.com/Boomatang/git-grab
 <path/to/repo/git-grab>
 ```

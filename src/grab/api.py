@@ -670,10 +670,28 @@ def wide_list(data):
 def path_to_repo(repo):
     if is_number(repo):
         path = get_path(id=int(repo))
+    elif is_url(repo):
+        org_project = split_url_to_org_project(repo)
+        path = get_path(path=org_project)
     else:
         path = get_path(path=repo)
 
     print(path)
+
+
+def split_url_to_org_project(repo: str):
+    split = repo.split('://')
+    split = split[1].split('/')
+    output = "/".join([split[1], split[2]])
+    return output
+
+
+def is_url(repo: str):
+    if repo.lower().startswith("http://") or repo.lower().startswith("https://"):
+        return True
+    else:
+        return False
+
 
 def is_number(value):
     try:
