@@ -48,11 +48,20 @@ def add(file_, url, path):
 @click.option("-o", "--org", help="Show only repos matching the org.")
 @click.option("-w", "--wide", is_flag=True, help="Show more details about the repos")
 @click.option("--generate", is_flag=True, help="Generate the repo_list.yaml file.")
-@click.option("-p", "paths", multiple=True, help="Paths to be included in the generate function.")
-@click.option("--show-paths", "show", is_flag=True, help="List the paths from grab_paths.yaml that is used to generate "
-                                                      "the current repo_list.yaml file")
-@click.option("--new-file", "new_file", is_flag=True, help="Create a new grab_paths.yaml file")
-@click.argument('grab_path', envvar=f"{PREFIX}_PATH")
+@click.option(
+    "-p", "paths", multiple=True, help="Paths to be included in the generate function."
+)
+@click.option(
+    "--show-paths",
+    "show",
+    is_flag=True,
+    help="List the paths from grab_paths.yaml that is used to generate "
+    "the current repo_list.yaml file",
+)
+@click.option(
+    "--new-file", "new_file", is_flag=True, help="Create a new grab_paths.yaml file"
+)
+@click.argument("grab_path", envvar=f"{PREFIX}_PATH")
 def list_repos(org, wide, generate, paths, show, new_file, grab_path):
 
     if len(paths) > 0 and not generate:
@@ -95,9 +104,13 @@ def fork(fork_path, path):
         exit(1)
     grab.fork(fork_path, path)
 
-@grab_cli.command('path', help="Get the system path for a Repo. The REPO is a combination of "
-                               "org/repo in the same format given by the list command or the line number given by the "
-                               "list command.")
+
+@grab_cli.command(
+    "path",
+    help="Get the system path for a Repo. The REPO is a combination of "
+    "org/repo in the same format given by the list command or the line number given by the "
+    "list command.",
+)
 @click.argument("repo")
 def path_to_repo(repo):
     grab.path_to_repo(repo)

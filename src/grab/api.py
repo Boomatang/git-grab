@@ -23,13 +23,14 @@ __all__ = [
     "generate",
     "show_paths",
     "list_repos",
-    "path_to_repo"
+    "path_to_repo",
 ]
 
 HOST = pathlib.Path.home()
 CONFIG_FOLDER = pathlib.Path(HOST, ".config", "grab")
 GRAB_PATH_LOCATION = pathlib.Path(CONFIG_FOLDER, "paths.json")
 GRAB_REPOS_LOCATION = pathlib.Path(CONFIG_FOLDER, "repos.json")
+
 
 class SshInfo:
     site: str = None
@@ -481,13 +482,15 @@ def get_releases():
     # return releases
     return grab.__releases__
 
+
 def generate(grab_path, paths, new_file):
     locations = create_paths_file(new_file, grab_path, paths)
 
-    print("Paths been scanned:\n\t", end='')
-    print('\n\t'.join(locations))
+    print("Paths been scanned:\n\t", end="")
+    print("\n\t".join(locations))
     repos = find_repos_in_locations(locations)
     create_repos_file(repos)
+
 
 def create_repos_file(repos):
     data = get_raw_data(repos)
@@ -495,8 +498,9 @@ def create_repos_file(repos):
     orgs = sorted_orgs(data)
     group_repos = grouped_repos(orgs, data)
     final = sorted_repos_list(orgs, group_repos, data)
-    result = {'repos': final, 'orgs': orgs}
+    result = {"repos": final, "orgs": orgs}
     GRAB_REPOS_LOCATION.write_text(json.dumps(result, indent=2, sort_keys=True))
+
 
 def find_repos_in_locations(locations):
     repos = []
@@ -511,17 +515,19 @@ def find_repos_in_locations(locations):
                 hold = current
     return repos
 
+
 def get_raw_data(repos):
     data = []
     for repo in repos:
         data.append(build_repo_object(repo))
     return data
 
+
 def sorted_orgs(data):
     orgs = []
     for point in data:
-        if point['org'] not in orgs:
-            orgs.append(point['org'])
+        if point["org"] not in orgs:
+            orgs.append(point["org"])
     orgs = sorted(orgs)
     return orgs
 
@@ -532,10 +538,11 @@ def grouped_repos(orgs, data):
         group_repos.setdefault(org, [])
 
         for point in data:
-            if point['org'] == org:
-                group_repos[org].append(point['repo'])
+            if point["org"] == org:
+                group_repos[org].append(point["repo"])
         group_repos[org] = sorted(group_repos[org])
     return group_repos
+
 
 def sorted_repos_list(orgs, group_repos, data):
     final = []
@@ -544,19 +551,21 @@ def sorted_repos_list(orgs, group_repos, data):
     for org in orgs:
         for repo in group_repos[org]:
             for point in data:
-                if point['repo'] == repo and point['org'] == org:
-                    point['index'] = index
+                if point["repo"] == repo and point["org"] == org:
+                    point["index"] = index
                     index += 1
-                    point['display'] = f"{point['org']}/{point['repo']}"
+                    point["display"] = f"{point['org']}/{point['repo']}"
                     final.append(point)
     return final
+
 
 def build_repo_object(repo):
     repo = pathlib.Path(repo)
     name = repo.parts[-1]
     org = repo.parts[-2]
     site = repo.parts[-3]
-    return {'repo': name, 'org': org, 'site': site, 'location': str(repo)}
+    return {"repo": name, "org": org, "site": site, "location": str(repo)}
+
 
 def create_paths_file(new_file, grab_path, paths):
     locations = []
@@ -565,23 +574,27 @@ def create_paths_file(new_file, grab_path, paths):
         locations = get_existing_locations()
     else:
         # Blank out the existing file
-        GRAB_PATH_LOCATION.write_text('')
+        GRAB_PATH_LOCATION.write_text("")
 
     check_locations(grab_path, paths, locations)
     locations = sorted(locations)
-    dict_file = {'created': time.strftime('%l:%M%p %z %d/%m/%Y'),'dirs': locations}
+    dict_file = {"created": time.strftime("%l:%M%p %z %d/%m/%Y"), "dirs": locations}
     GRAB_PATH_LOCATION.write_text(json.dumps(dict_file))
 
     return locations
 
+
 def get_existing_locations():
-    with open(str(GRAB_PATH_LOCATION), 'r') as file:
+    with open(str(GRAB_PATH_LOCATION), "r") as file:
         data = json.load(file)
-    return data['dirs']
+    return data["dirs"]
+
 
 def check_locations(grab_path, paths, locations):
     if not path_exists(grab_path):
-        print("Environment Variable GRAB_PATH to does not point to an real location, Skipping...")
+        print(
+            "Environment Variable GRAB_PATH to does not point to an real location, Skipping..."
+        )
     else:
         if grab_path not in locations:
             locations.append(grab_path)
@@ -593,6 +606,7 @@ def check_locations(grab_path, paths, locations):
             if path not in locations:
                 locations.append(path)
 
+
 def path_exists(path):
     path = pathlib.Path(path)
     if path.is_dir():
@@ -600,18 +614,29 @@ def path_exists(path):
     else:
         return False
 
+
 def garb_paths_file_exists():
     return GRAB_PATH_LOCATION.is_file()
 
-def is_git_directory(path = '.'):
-    return subprocess.call(['git', '-C', path, 'status'], stderr=subprocess.STDOUT, stdout = open(os.devnull, 'w')) == 0
+
+def is_git_directory(path="."):
+    return (
+        subprocess.call(
+            ["git", "-C", path, "status"],
+            stderr=subprocess.STDOUT,
+            stdout=open(os.devnull, "w"),
+        )
+        == 0
+    )
+
 
 def show_paths():
     with open(GRAB_PATH_LOCATION, "r") as paths:
         data = json.load(paths)
 
-    for dir in data['dirs']:
+    for dir in data["dirs"]:
         print(dir)
+
 
 def list_repos(org=None, wide=False):
     if not file_exists(GRAB_REPOS_LOCATION):
@@ -628,8 +653,9 @@ def list_repos(org=None, wide=False):
     else:
         print(narrow_list(data))
 
+
 def filtered_data(org: str, data):
-    key = [a for a in data['orgs'] if a.lower() == org.lower()]
+    key = [a for a in data["orgs"] if a.lower() == org.lower()]
     if len(key) <= 0:
         print(f"No information found for {org}")
         print("Aborting...")
@@ -637,31 +663,33 @@ def filtered_data(org: str, data):
 
     key = key[0]
     result = []
-    for repo in data['repos']:
-        if repo['org'] == key:
+    for repo in data["repos"]:
+        if repo["org"] == key:
             result.append(repo)
-    return {'repos': result}
+    return {"repos": result}
+
 
 def file_exists(path_to_file: pathlib.Path):
     return path_to_file.is_file()
 
+
 def narrow_list(data):
-    header = ['#', 'Org/Repo']
+    header = ["#", "Org/Repo"]
     result_data = []
-    for entry in data['repos']:
-        result_data.append((entry['index'], entry['display']))
+    for entry in data["repos"]:
+        result_data.append((entry["index"], entry["display"]))
 
     table = tabulate(result_data, header)
     return table
 
+
 def wide_list(data):
-    header = ['#', 'Org/Repo', 'Location', 'Site']
+    header = ["#", "Org/Repo", "Location", "Site"]
     result_data = []
-    for entry in data['repos']:
-        result_data.append((entry['index'],
-                            entry['display'],
-                            entry['location'],
-                            entry['site']))
+    for entry in data["repos"]:
+        result_data.append(
+            (entry["index"], entry["display"], entry["location"], entry["site"])
+        )
 
     table = tabulate(result_data, header)
     return table
@@ -680,8 +708,8 @@ def path_to_repo(repo):
 
 
 def split_url_to_org_project(repo: str):
-    split = repo.split('://')
-    split = split[1].split('/')
+    split = repo.split("://")
+    split = split[1].split("/")
     output = "/".join([split[1], split[2]])
     return output
 
@@ -707,21 +735,22 @@ def get_path(id=None, path=None):
 
     if id:
         for record in records:
-            if record['index'] == id:
-                result = record['location']
+            if record["index"] == id:
+                result = record["location"]
                 break
 
     if path:
         for record in records:
-            if record['display'].lower() == path.lower():
-                result = record['location']
+            if record["display"].lower() == path.lower():
+                result = record["location"]
                 break
 
     if result is None:
-        return f"No Repo entry found for \"{path}\""
+        return f'No Repo entry found for "{path}"'
     return result
+
 
 def load_records():
     with open(GRAB_REPOS_LOCATION, "r") as paths:
         output = json.load(paths)
-    return output['repos']
+    return output["repos"]
