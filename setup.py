@@ -37,7 +37,7 @@ setup(
     install_requires=[
         "click",  # for CLI
         "requests",
-        "tabulate"
+        "tabulate",
         "dataclasses; python_version<'3.7'",
     ],
     include_package_data=True,
