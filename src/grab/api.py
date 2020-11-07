@@ -4,7 +4,6 @@ import shutil
 import subprocess
 import time
 import json
-from pprint import pprint
 
 import requests
 import click
@@ -384,7 +383,7 @@ def fork(fork_path, src=None):
 
     data = get_api_repo_data(username, repo)
 
-    if data["fork"] == False:
+    if data["fork"] is False:
         print("Repo is not a fork. Aborting")
         return
 
@@ -723,9 +722,9 @@ def is_url(repo: str):
 
 def is_number(value):
     try:
-        test = int(value)
+        int(value)
         return True
-    except:
+    except ValueError:
         return False
 
 
