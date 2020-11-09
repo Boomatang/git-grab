@@ -11,7 +11,7 @@ Types of Contributions
 
 ### Report Bugs
 
-Report bugs at <https://github.com/okken/cards/issues>.
+Report bugs at <https://github.com/Boomatang/git-grab/issues>.
 
 If you are reporting a bug, please include:
 
@@ -33,15 +33,15 @@ it.
 
 ### Write Documentation
 
-grab could always use more documentation, whether as part of the
-official grab docs, in docstrings, or even on the web in blog posts,
+git-grab could always use more documentation, whether as part of the
+official git-grab docs, in docstrings, or even on the web in blog posts,
 articles, and such.
 
 
 ### Submit Feedback
 
 The best way to send feedback is to file an issue at
-<https://github.com/okken/cards/issues>.
+<https://github.com/boomatang/git-grab/issues>.
 
 If you are proposing a feature:
 
@@ -59,12 +59,12 @@ Ready to contribute? Here's how to set up grab for local development.
 1.  Fork the grab repo on GitHub.
 2.  Clone your fork locally:
 
-        $ git clone git@github.com:your_name_here/cards.git
+        $ git clone git@github.com:your_name_here/git-grab.git
 
 3.  Install your local copy into a virtual environment:
 
         $ cd cards/
-        $ python3.6 -m venv venv --prompt cards
+        $ python3.6 -m venv venv --prompt git-grab
         $ source venv/bin/activate
         $ pip install -e .
         $ pip install -r requirements_dev.txt
