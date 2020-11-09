@@ -1,61 +1,52 @@
-# Welcome to Cards
+# Welcome to Git-Grab
 
-This is a demo application being built in conjunction with the [Test & Code podcast](http://testandcode.com).
+This application is built to give a helping hand when working with
+multiply git repos. The use case is for downloading repos to your local
+machine in a structured format.
 
-We'll be building up this application, and testing it, and adding functionality, while discussing software testing and development practices.
-
-Follow along, starting with [episode 37](http://testandcode.com/37).
-
-There will be more documentation here at some point. :)
-
+## Key Features
+- Download git repos from remote sites. Github.com, Bitbucket.org &
+  custom GitLab instances.
+- Download repos to a formatted structure.
+- Add forks to currently installed repos.
+- List currently install repos.
+- Display paths to repos.
 
 # Usage
 
 See [usage page](usage.md) for details, but here's a demo of how it works:
 
 ```
-$ cards add 'a todo'
+$ grab add -u git@github.com:Boomatang/git-grab.git
 
-$ cards add -o Brian 'another task'
+$ grab list
 
-$ cards list
-  ID      owner  done summary
-  --      -----  ---- -------
-   1                  a todo
-   2      Brian       another task
+#  Org/Repo
+-- -------------------
+1  Boomatang/dotfiles
+2  Boomatang/git-grab
+3  github/gitignore
 
-$ cards update 1 -o Brian
+$ grab path Boomatang/git-grab
+/home/boomatang/code/github.com/Boomatang/git-grab
 
-$ cards update 1 --done True
+$ grab fork git@github.com:NewFork/git-grab.git
 
-$ cards
-  ID      owner  done summary
-  --      -----  ---- -------
-   1      Brian    x  a todo
-   2      Brian       another task
+$ grab --help
+Usage: grab [OPTIONS] COMMAND [ARGS]...
 
-$ cards delete 1
-
-$ cards
-  ID      owner  done summary
-  --      -----  ---- -------
-   2      Brian       another task
-
-$ cards --help
-Usage: cards [OPTIONS] COMMAND [ARGS]...
-
-  Run the cards application.
+  Run the grab application.
 
 Options:
   --version   Show the version and exit.
   -h, --help  Show this message and exit.
 
 Commands:
-  add     add a card
-  count   list count
-  delete  delete a card
-  list    list cards
-  update  update card
+  add   Add repos from file
+  fork  Add remote users fork.
+  list  List all the current repos
+  path  Get the system path for a Repo.
+
 ```
 
 
