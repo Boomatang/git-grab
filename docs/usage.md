@@ -1,102 +1,126 @@
-Usage
-=====
+# Usage
 
-Cards is implemented as a command line application.
+## Initial Setup
+There is are a few setup steps that can be down to make the usage of `git-grab` easier.
+These steps can be done at any time.
 
-Console Help
--------------
-To invoke the usage on the commandline call `grab --help`
-Here is the output from the version 0.1.10:
+Setting the default path for where repos will be stored can be done by an environment variable.
+Add `export GRAB_PATH=<full/path>` to your shells rc file.
+This sets the default path for the commands that will be covered later.
 
+Creating the files required for lookups later can also be done now.
+For the first time that the command is run the `--new-file` flag must be pasted.
+By default, the path `GRAB_PATH` is included but more can be added using the `-p` flag.
+```shell
+grab list --generate --new-file
+
+or
+
+grab list --generate --new-file -p <extra/path>
 ```
-$ cards --help
-Usage: cards [OPTIONS] COMMAND [ARGS]...
+The `list` command is explained later.
 
-  Run the cards application.
-
-Options:
-  --version   Show the version and exit.
-  -h, --help  Show this message and exit.
-
-Commands:
-  add     add a card
-  count   list count
-  delete  delete a card
-  list    list cards
-  update  update card
+## Commands
+### add
+The `add` commands will clone git repos and store these in a structured manner.
+The structure that is used.
 ```
-
-To get help on the commands options and arguements use `grab [command] --help`.
-
-Here are a few...
-
-Adding a card
--------------
-
-```
-$ cards add --help
-Usage: cards add [OPTIONS] SUMMARY
-
-  add a card
-
-Options:
-  -o, --owner TEXT  set the card owner
-  -h, --help        Show this message and exit.
+$GRAB_PATH
+└── <source controll website>
+        └── <Org/Username>
+            ├── <repo 1>
+            └── <repo 2>
 ```
 
-Listing cards
--------------
+| flag      | Description                                   | type            |
+|-----------|-----------------------------------------------|-----------------|
+| -f --file | File listing repos to be cloned (unsupported) | file location   |
+| -u --url  | ssh url of repo to be cloned                  | ssh@url         |
+| -p --path | System path location to clone repo to         | folder location |
+| -h --help | Shows command help                            |                 |
 
-```
-cards list --help
-Usage: cards list [OPTIONS]
+The `--file` flag feature will be removed in later release due to a lack of use.
+If this is a feature that you use please share.
 
-  list cards
+After adding a new repo it to the default or stored path it is a good idea to run `grab list --generate`.
+This will update the list of repo that can be searched later.
 
-Options:
-  -n, --noowner       filter on the card without owners
-  -o, --owner TEXT    filter on the card owner
-  -d, --done BOOLEAN  filter on cards with given done state
-  -f, --format TEXT   table formatting option, eg. "grid", "simple", "html"
-  -h, --help          Show this message and exit.
-```
+#### Example use cases
 
-Updating a card
----------------
-
-```
-$ cards update --help
-Usage: cards update [OPTIONS] CARD_ID
-
-  update card
-
-Options:
-  -o, --owner TEXT    change the card owner
-  -s, --summary TEXT  change the card summary
-  -d, --done BOOLEAN  change the card done state (True or False)
-  -h, --help          Show this message and exit.
+Cloning a new repo to the default defined by `GRAB_PATH`.
+```shell
+grab add -u git@github.com:Boomatang/git-grab.git
 ```
 
+Clone a repo to a none default location.
+One reason this might want to be done is to temporarily clone a repo.
+```shell
+grab add -u git@github.com:Boomatang/git-grab.git -p /tmp
+```
 
-Basic Actions
--------------
+### fork
+The `fork` command adds remotes to the cloned repos.
+This is done with using the same `git@url` that would be used the clone the remote locally.
+Currently, this feature only work with repos on github.com.
 
-| Action                | Commandline    |
-|-----------------------|----------------|
-| add a card            | `grab add "name of the task in strings"` |
-| show your cards       | `grab list` |
-| delete a card         | `grab delete [id]` |
-| count your cards      | `grab count` |
+| Flags      | Description                          | Type            |
+|------------|--------------------------------------|-----------------|
+| -p, --path | Path to repo if not in default paths | Folder location |
+| -h, --help | Display help text                    |                 |
 
-Options
----------
+When the repo is in the default paths state in the `list` command there is no need to use the `-p` flag.
+The repo will be found.
 
-The following options are supported by some of the commands
+After using the command the remote will be added using the username of the fork.
+The git remotes can be listed by using `git remote`.
 
-| Options                    | Description |
-|----------------------------|-----------------------------|
-| -o/--owner [NAME]         | add a owner named NAME    |
-| -s/--summary [TASK]       | set a (new) summary       |
-| -d/--done [BOOL]          | mark a task state true/1=done (marked with x) false/0=open |
+#### Example usage
 
-**NOTE:** *The add command will not support the `--summary` option, but use the positional argument*
+Adding a remote to existing repo.
+```shell
+grab fork git@github.com:<username>/git-grab.git
+```
+
+Adding a remote to repo in none default location.
+```shell
+grab fork -p /tmp/repo git@github.com:<username>/git-grab.git
+```
+
+### list
+The `list` command can be used to list all the repos that have being configured and in the default path.
+
+| Flags        | Description                                                                             | Type             |
+|--------------|-----------------------------------------------------------------------------------------|------------------|
+| -o, --org    | List only repos from give org/user                                                      | string           |
+| -w, --wide   | Shows more details on the repo                                                          | bool             |
+| --generate   | Generates teh repo_list.yaml file                                                       | bool             |
+| -p           | Paths to include in generate function                                                   | folder locations |
+| --show-paths | List the paths from grab_paths.yaml that is used to generate the current repo_list.yaml | bool             |
+| --new-file   | Creates a new grab_paths.yaml file                                                      | bool             |
+| -h, --help   | Display help text                                                                       |                  |
+
+### path
+The `path` command prints the path to a repo.
+This can take a number that is shown side the repo from the list command or the org/repo string.
+
+| Flags        | Description       | Type |
+|--------------|-------------------|------|
+| -h, --help   | Display help text |      |
+
+#### Example use case
+
+Print the path to a repo
+```shell
+$ grab path Boomatang/git-grab
+<path/to/repo/git-grab>
+
+or
+
+$ grab path 2
+<path/to/repo/git-grab>
+```
+
+A common use case is to combine this with the `cd` command to change to repo location.
+```shell
+cd $(grab path Boomatang/git-grab)
+```
