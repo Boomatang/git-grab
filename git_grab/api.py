@@ -2,7 +2,7 @@ import json
 import os
 import pathlib
 import shutil
-import subprocess
+import subprocess  # nosec
 import time
 from dataclasses import asdict, dataclass
 from typing import List

@@ -1,4 +1,4 @@
-import subprocess
+import subprocess  # nosec
 
 import pytest
 
