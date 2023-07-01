@@ -6,7 +6,7 @@ authors = ["Jim Fitzpatrick <jfitzpat@redhat.com>"]
 license = "MIT"
 readme = "README.md"
 packages = [{include = "git_grab"}]
-classifiers=[
+classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -15,7 +15,7 @@ classifiers=[
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: Implementation :: CPython",
-],
+]
 
 [tool.poetry.dependencies]
 python = ">=3.8.1,<4.0"
