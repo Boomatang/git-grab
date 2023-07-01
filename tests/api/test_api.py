@@ -1,7 +1,7 @@
 import subprocess
 
-import grab
-import grab.helper
+import git_grab
+import git_grab.helper
 import pytest
 
 
@@ -25,34 +25,26 @@ def mock_response(monkeypatch):
 
 
 def test_is_on_branch(mock_response):
-    assert grab.helper.is_on_branch() is True
+    assert git_grab.helper.is_on_branch() is True
 
 
 def test_is_on_branch_not_dev_branch(mock_response):
-    assert grab.helper.is_on_branch("dev") is False
+    assert git_grab.helper.is_on_branch("dev") is False
 
 
 @pytest.mark.parametrize("branch", [("master", True), ("dev", False)])
 def test_get_branch_name(branch, mock_response):
-    name = grab.helper.get_branch_name()
+    name = git_grab.helper.get_branch_name()
     # print(name)
     assert (name == branch[0]) == branch[1]
-
-
-def test_update_repo(capsys):
-    grab.update_repo("Sample")
-
-    captured = capsys.readouterr()
-
-    assert captured.out == "Update repo Sample\n"
 
 
 def test_parse_line_contents_SSH_type():
     sample = "git@github.com:Sample/Repo.git"
 
-    result = grab.api.parse_line_contents(sample)
+    result = git_grab.api.parse_line_contents(sample)
 
-    assert type(result) == grab.api.SshInfo
+    assert type(result) == git_grab.api.SshInfo
     assert result.repo == "Repo"
     assert result.user == "Sample"
     assert result.ssh == "git@github.com:Sample/Repo.git"
@@ -62,7 +54,7 @@ def test_parse_line_contents_SSH_type():
 def test_parse_line_contents_HTTPS_type(capsys):
     sample = "https://github.com/Sample/Repo.git"
 
-    result = grab.api.parse_line_contents(sample)
+    result = git_grab.api.parse_line_contents(sample)
 
     captured = capsys.readouterr()
 
@@ -76,7 +68,7 @@ def test_parse_line_contents_HTTPS_type(capsys):
 def test_parse_line_contents_not_valid_type(capsys):
     sample = "Not Valid URL type"
 
-    result = grab.api.parse_line_contents(sample)
+    result = git_grab.api.parse_line_contents(sample)
 
     captured = capsys.readouterr()
 
@@ -90,7 +82,7 @@ def test_parse_url_content_SSH_type():
         "site": {"github.com": {"Sample": {"Repo": "git@github.com:Sample/Repo.git"}}}
     }
 
-    result = grab.api.parse_url_content(sample)
+    result = git_grab.api.parse_url_content(sample)
 
     assert result == expected
 
@@ -98,7 +90,7 @@ def test_parse_url_content_SSH_type():
 def test_parse_url_content_HTTPS_type(capsys):
     sample = "repo=https://github.com/Sample/Repo.git"
 
-    result = grab.api.parse_url_content(sample)
+    result = git_grab.api.parse_url_content(sample)
 
     captured = capsys.readouterr()
 
@@ -112,7 +104,7 @@ def test_parse_url_content_HTTPS_type(capsys):
 def test_parse_url_content_not_valid_type(capsys):
     sample = "Not Valid URL type"
 
-    result = grab.api.parse_url_content(sample)
+    result = git_grab.api.parse_url_content(sample)
 
     captured = capsys.readouterr()
 

@@ -1,5 +1,5 @@
 import click
-import grab
+import git_grab
 
 PREFIX = "GRAB"
 
@@ -16,7 +16,7 @@ path_message = (
         "auto_envvar_prefix": PREFIX,
     },
 )
-@click.version_option(version=grab.version())
+@click.version_option(version=git_grab.version())
 @click.pass_context
 def grab_cli(ctx):
     """Run the grab application."""

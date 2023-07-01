@@ -12,8 +12,8 @@ from tabulate import tabulate
 
 from dataclasses import dataclass, asdict
 
-import grab
-from grab.helper import is_on_branch, get_branch_name
+import git_grab
+from git_grab.helper import is_on_branch, get_branch_name
 
 __all__ = [
     "add_repos",
@@ -459,16 +459,16 @@ def get_username_and_repo(fork_path):
 
 
 def version():
-    ver = grab.__version__.split(" ")
+    ver = git_grab.__version__.split(" ")
     ver = ver[0]
     releases = get_releases()
 
     if ver not in releases:
-        release = f"{grab.__version__} - Experimental Version"
+        release = f"{git_grab.__version__} - Experimental Version"
     elif ver == releases[0]:
-        release = f"{grab.__version__}"
+        release = f"{git_grab.__version__}"
     else:
-        release = f"{grab.__version__} - Newer version is available"
+        release = f"{git_grab.__version__} - Newer version is available"
 
     return release
 
@@ -479,7 +479,7 @@ def get_releases():
     # releases = list(data["releases"].keys())
     # releases = sorted(releases, reverse=True)
     # return releases
-    return grab.__releases__
+    return git_grab.__releases__
 
 
 def generate(grab_path, paths, new_file):
