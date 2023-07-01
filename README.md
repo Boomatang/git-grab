@@ -1,9 +1,8 @@
 Git Grab
 ========
 
-Git Helper Tool used to quickly added repo's to the users system for an
-external source. With not having to worry and were the repo is been
-stored.
+Git Helper Tool used to quickly added repo's to the users system for an external source.
+With not having to worry and were the repo is being stored.
 
 Initial Goals of the project
 ----------------------------

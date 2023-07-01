@@ -430,7 +430,7 @@ def exit_on_subprocess_error(subprocess_output):
 
 def get_api_repo_data(username, repo):
     api = "https://api.github.com/repos"
-    response = requests.get(f"{api}/{username}/{repo}")
+    response = requests.get(f"{api}/{username}/{repo}", timeout=30)
     if response.status_code != 200:
         print("Error in connection to github.com api")
         return
