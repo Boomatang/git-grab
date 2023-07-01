@@ -1,4 +1,5 @@
 import click
+
 import git_grab
 
 PREFIX = "GRAB"
@@ -41,7 +42,7 @@ def add(file_, url, path):
         print("A file or url is required")
         exit(1)
 
-    grab.add_repos(file_, url, path)
+    git_grab.add_repos(file_, url, path)
 
 
 @grab_cli.command(name="list", help="List all the current repos")
@@ -63,7 +64,6 @@ def add(file_, url, path):
 )
 @click.argument("grab_path", envvar=f"{PREFIX}_PATH")
 def list_repos(org, wide, generate, paths, show, new_file, grab_path):
-
     if len(paths) > 0 and not generate:
         print("-p can only be used with --generate")
         print("Aborting...")
@@ -85,11 +85,11 @@ def list_repos(org, wide, generate, paths, show, new_file, grab_path):
         exit(1)
 
     if generate:
-        grab.generate(grab_path, paths, new_file)
+        git_grab.generate(grab_path, paths, new_file)
     elif show:
-        grab.show_paths()
+        git_grab.show_paths()
     else:
-        grab.list_repos(org, wide)
+        git_grab.list_repos(org, wide)
 
 
 @grab_cli.command(
@@ -102,7 +102,7 @@ def fork(fork_path, path):
     if path is None:
         print(path_message)
         exit(1)
-    grab.fork(fork_path, path)
+    git_grab.fork(fork_path, path)
 
 
 @grab_cli.command(
@@ -113,4 +113,4 @@ def fork(fork_path, path):
 )
 @click.argument("repo")
 def path_to_repo(repo):
-    grab.path_to_repo(repo)
+    git_grab.path_to_repo(repo)

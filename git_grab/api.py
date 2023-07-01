@@ -1,19 +1,18 @@
-import pathlib
+import json
 import os
+import pathlib
 import shutil
 import subprocess
 import time
-import json
-
-import requests
-import click
+from dataclasses import asdict, dataclass
 from typing import List
+
+import click
+import requests
 from tabulate import tabulate
 
-from dataclasses import dataclass, asdict
-
 import git_grab
-from git_grab.helper import is_on_branch, get_branch_name
+from git_grab.helper import get_branch_name, is_on_branch
 
 __all__ = [
     "add_repos",
@@ -123,7 +122,6 @@ def exit_program_if_file_does_not_exist(file_name):
 
 
 def parse_file_contents(file_path):
-
     line_data = []
     with open(file_path, "r") as f:
         for line in f:
@@ -404,7 +402,6 @@ def change_to_parent_repo(src, parent):
 
     # TODO Make this add the fork repo
     if not parent_dir.is_dir():
-
         print("The parent repo does not exist.")
         return
 

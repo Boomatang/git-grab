@@ -1,9 +1,9 @@
 import subprocess
 
-import git_grab
-import git_grab.helper
 import pytest
 
+import git_grab
+import git_grab.helper
 
 # CompletedProcess(args=['git', 'branch'], returncode=0, stdout=b'* master\n', stderr=b'')
 
@@ -18,7 +18,6 @@ class MockResponse:
 @pytest.fixture
 def mock_response(monkeypatch):
     def mockreturn(*args, **kwargs):
-
         return MockResponse()
 
     monkeypatch.setattr(subprocess, "run", mockreturn)

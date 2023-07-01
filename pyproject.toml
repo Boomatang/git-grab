@@ -29,6 +29,7 @@ pytest = "^7.4.0"
 tox = "^4.6.3"
 pytest-cov = "^4.1.0"
 flake8 = "^6.0.0"
+bandit = "^1.7.5"
 
 [tool.poetry.scripts]
 grab = "git_grab.cli:grab_cli"
@@ -36,3 +37,10 @@ grab = "git_grab.cli:grab_cli"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+profile = "black"
+
+[tool.bandit]
+assert_used.skips = ['*_testpy', '*/test_*.py']
+skips = ["B404", "B603", "B607", "B113"]
