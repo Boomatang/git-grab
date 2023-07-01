@@ -265,7 +265,7 @@ def git_clone(ssh):
     message = None
 
     print(f"Cloning {ssh} to {os.getcwd()}...\t", end="")
-    value = subprocess.run(["git", "clone", ssh], capture_output=True)
+    value = subprocess.run(["git", "clone", ssh], capture_output=True)  # nosec
 
     if value.returncode != 0:
         message = {"repo": ssh, "error": value.stderr.decode()}
@@ -311,7 +311,7 @@ def git_status():
     Checks for git status
     :return: True if there is no uncommitted files
     """
-    output = subprocess.run(["git", "status", "-s"], capture_output=True)
+    output = subprocess.run(["git", "status", "-s"], capture_output=True)  # nosec
     if len(output.stdout) == 0:
         return True
     else:
@@ -321,10 +321,10 @@ def git_status():
 def stash_changes_and_checkout_master():
     past_branch = get_branch_name()
     if not git_status():
-        status = subprocess.run(["git", "stash"], capture_output=True)
+        status = subprocess.run(["git", "stash"], capture_output=True)  # nosec
         status.check_returncode()
 
-    branch = subprocess.run(["git", "checkout", "master"], capture_output=True)
+    branch = subprocess.run(["git", "checkout", "master"], capture_output=True)  # nosec
     branch.check_returncode()
 
     return past_branch
@@ -332,16 +332,20 @@ def stash_changes_and_checkout_master():
 
 def restore_past_branch(branch):
     if branch is not None:
-        status = subprocess.run(["git", "checkout", branch], capture_output=True)
+        status = subprocess.run(
+            ["git", "checkout", branch], capture_output=True
+        )  # nosec
         status.check_returncode()
 
         if is_on_branch(branch):
-            status = subprocess.run(["git", "stash", "pop"], capture_output=True)
+            status = subprocess.run(
+                ["git", "stash", "pop"], capture_output=True
+            )  # nosec
             status.check_returncode()
 
 
 def do_git_pull():
-    status = subprocess.run(["git", "pull"], capture_output=True)
+    status = subprocess.run(["git", "pull"], capture_output=True)  # nosec
     if status.returncode != 0:
         print(status.stderr.decode())
         exit(1)
@@ -409,12 +413,12 @@ def change_to_parent_repo(src, parent):
 
 
 def run_git_remote_commands(username, fork_path):
-    output = subprocess.run(
+    output = subprocess.run(  # nosec
         ["git", "remote", "add", username, fork_path], capture_output=True
     )
     exit_on_subprocess_error(output)
 
-    output = subprocess.run(["git", "remote"], capture_output=True)
+    output = subprocess.run(["git", "remote"], capture_output=True)  # nosec
     exit_on_subprocess_error(output)
 
     remotes = output.stdout.decode().split("\n")
@@ -617,7 +621,7 @@ def garb_paths_file_exists():
 
 def is_git_directory(path="."):
     return (
-        subprocess.call(
+        subprocess.call(  # nosec
             ["git", "-C", path, "status"],
             stderr=subprocess.STDOUT,
             stdout=open(os.devnull, "w"),

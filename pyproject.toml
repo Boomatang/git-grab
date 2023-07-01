@@ -43,4 +43,4 @@ profile = "black"
 
 [tool.bandit]
 assert_used.skips = ['*_testpy', '*/test_*.py']
-skips = ["B404", "B603", "B607"]
+skips = ["B404", "B603"]

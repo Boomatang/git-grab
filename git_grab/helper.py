@@ -6,7 +6,7 @@ def is_on_branch(branch="master"):
     This expects to be in git repo.
     :return: True if on master branch
     """
-    status = subprocess.run(["git", "branch"], capture_output=True)
+    status = subprocess.run(["git", "branch"], capture_output=True)  # nosec
     stdout = status.stdout.decode()
     split = stdout.split("\n")
     for entry in split:
@@ -22,7 +22,7 @@ def get_branch_name():
     This expects to be in git repo.
     :return: branch name
     """
-    branch = subprocess.run(["git", "branch"], capture_output=True)
+    branch = subprocess.run(["git", "branch"], capture_output=True)  # nosec
     stdout = branch.stdout.decode()
     split = stdout.split("\n")
     output = None
