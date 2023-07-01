@@ -37,13 +37,13 @@ repos:
   hooks:
     - id: pytest-check
       name: pytest-check
-      entry: pytest
+      entry: poetry run pytest
       language: system
       pass_filenames: false
       always_run: true
     - id: bandit
       name: bandit
-      entry: bandit
+      entry: poetry run bandit
       language: system
       pass_filenames: true
       args: [ "-c", "pyproject.toml" ]
