@@ -33,6 +33,7 @@ bandit = "^1.7.6"
 
 [tool.poetry.scripts]
 grab = "git_grab.cli:grab_cli"
+wip = "git_grab.wip:wip"
 
 [build-system]
 requires = ["poetry-core"]
