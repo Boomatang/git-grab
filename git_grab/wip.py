@@ -4,6 +4,7 @@ import os
 import subprocess  # nosec
 import tempfile
 from pathlib import Path
+from typing import List
 from urllib.parse import ParseResult, urlparse
 
 logger = logging.getLogger("grab")
@@ -80,6 +81,46 @@ def clone(path: Path, repo: Repository):
         logger.info(f"Successfully cloned {repo}")
 
 
+def get_paths(path: Path, repo: Repository) -> List[Path]:
+    out = []
+
+    for p in path.iterdir():
+        if p.is_dir() and p.name == repo.site:
+            for sp in p.iterdir():
+                if sp.is_dir():
+                    for ssp in sp.iterdir():
+                        if ssp.is_dir() and ssp.name == repo.project:
+                            logger.debug(f"Found {ssp}")
+                            out.append(ssp)
+    return out
+
+
+def add_remote(origin: Path, repo: Repository):
+    logger.debug(f"Checking if remote {repo.owner} exists")
+    value = subprocess.run(
+        ["git", "-C", str(origin), "remote"], capture_output=True
+    )  # nosec
+    if value.returncode != 0:
+        logger.error(f"Failed to check if remote {repo.owner} exists")
+        logger.debug(f"error: {value.stderr.decode()}")
+        return
+    result = value.stdout.decode().split("\n")
+    if repo.owner in result:
+        logger.warning(f"Remote {repo.owner} already exists, skipping")
+        return
+
+    logger.debug(f"Adding remote {repo.owner}")
+    value = subprocess.run(
+        ["git", "-C", str(origin), "remote", "add", repo.owner, repo.clone],
+        capture_output=True,
+    )  # nosec
+    if value.returncode != 0:
+        logger.error(f"Failed to add remote {repo}")
+        logger.debug(f"error: {value.stderr.decode()}")
+        return
+    logger.info(f"Successfully added remote {repo.owner} to {origin}")
+
+
 def wip():
     parser = argparse.ArgumentParser(
         prog="grab",
@@ -105,7 +146,7 @@ def wip():
         action="store_true",
     )
     parser.add_argument(
-        "-f", "--fork", help="Add fork to existing repo.", action="store_true"
+        "-r", "--remote", help="Add remote to existing repo.", action="store_true"
     )
     parser.add_argument("--debug", help="Enable debug mode.", action="store_true")
     args = parser.parse_args()
@@ -139,17 +180,25 @@ def wip():
         exit(1)
 
     for repo in args.REPOS:
-        logger.info(f"Processing repository {repo}")
         r = Repository(repo)
-        owner_path = create_owner_path(path, r)
-        project_path = Path(owner_path, r.project)
+        if args.remote:
+            logger.info(f"Processing remote {r}")
+            origins = get_paths(path, r)
+            if len(origins) == 0:
+                logger.warning(f"No origins found for {r}")
+            for origin in origins:
+                add_remote(origin, r)
+        else:
+            logger.info(f"Processing repository {r}")
+            owner_path = create_owner_path(path, r)
+            project_path = Path(owner_path, r.project)
 
-        if project_path.is_dir():
-            logger.warning(f'Directory "{project_path}" already exists.')
-            logger.warning(f'Not attempting to clone "{repo}".')
-            continue
+            if project_path.is_dir():
+                logger.warning(f'Directory "{project_path}" already exists.')
+                logger.warning(f'Not attempting to clone "{repo}".')
+                continue
 
-        clone(owner_path, r)
+            clone(owner_path, r)
 
 
 if __name__ == "__main__":
