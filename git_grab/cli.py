@@ -121,7 +121,7 @@ def add_remote(origin: Path, repo: Repository):
     logger.info(f"Successfully added remote {repo.owner} to {origin}")
 
 
-def wip():
+def cli():
     parser = argparse.ArgumentParser(
         prog="grab",
         description="grab clones the give repositories into a structure "
@@ -202,4 +202,4 @@ def wip():
 
 
 if __name__ == "__main__":
-    wip()
+    cli()
