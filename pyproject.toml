@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "git-grab"
-version = "0.5.0"
+version = "0.6.0"
 description = "Git Helper Tool"
 authors = ["Jim Fitzpatrick <jfitzpat@redhat.com>"]
 license = "MIT"
