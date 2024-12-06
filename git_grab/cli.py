@@ -62,23 +62,48 @@ def configure_logger(logger, debug=False):
     logger.addHandler(ch)
 
 
-def create_owner_path(path: Path, repo: Repository):
-    p = Path(path, repo.site, repo.owner)
-    logger.debug(f"Creating owner path: {p}, if not already exists")
-    p.mkdir(parents=True, exist_ok=True)
+def create_project_path(path: Path, repo: Repository):
+    p = Path(path, repo.site, repo.owner, repo.project)
+    logger.debug(f"Creating project path: {p}, if not already exists")
+    if p.is_dir():
+        logger.warning(f'Directory "{p}" already exists.')
+        logger.warning(f'Not attempting to clone "{repo}".')
+    p.mkdir(parents=True)
     return p
 
 
 def clone(path: Path, repo: Repository):
     logger.info(f"Starting to clone {repo}")
     value = subprocess.run(
-        ["git", "-C", str(path), "clone", repo.clone], capture_output=True
+        ["git", "-C", str(path), "clone", "--bare", repo.clone, ".bare"],
+        capture_output=True,
     )  # nosec
     if value.returncode != 0:
         logger.error(f"Failed to clone {repo}")
         logger.debug(f"error: {value.stderr.decode()}")
     else:
         logger.info(f"Successfully cloned {repo}")
+
+
+def link_git(path: Path):
+    logger.debug("Creating .git file")
+    git_file = Path(path, ".git")
+    with open(git_file, "w") as f:
+        f.write("gitdir: .bare")
+
+
+def make_main_worktree(path: Path):
+    logger.debug("Creating initial main work tree")
+
+    value = subprocess.run(
+        ["git", "-C", str(path), "worktree", "add", "main"],
+        capture_output=True,
+    )  # nosec
+    if value.returncode != 0:
+        logger.error("Failed to create main work tree")
+        logger.debug(f"error: {value.stderr.decode()}")
+    else:
+        logger.info("Successfully created main work tree")
 
 
 def get_paths(path: Path, repo: Repository) -> List[Path]:
@@ -190,15 +215,11 @@ def cli():
                 add_remote(origin, r)
         else:
             logger.info(f"Processing repository {r}")
-            owner_path = create_owner_path(path, r)
-            project_path = Path(owner_path, r.project)
+            project_path = create_project_path(path, r)
 
-            if project_path.is_dir():
-                logger.warning(f'Directory "{project_path}" already exists.')
-                logger.warning(f'Not attempting to clone "{repo}".')
-                continue
-
-            clone(owner_path, r)
+            clone(project_path, r)
+            link_git(project_path)
+            make_main_worktree(project_path)
 
 
 if __name__ == "__main__":
