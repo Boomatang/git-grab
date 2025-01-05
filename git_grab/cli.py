@@ -68,6 +68,7 @@ def create_project_path(path: Path, repo: Repository):
     if p.is_dir():
         logger.warning(f'Directory "{p}" already exists.')
         logger.warning(f'Not attempting to clone "{repo}".')
+        exit(1)
     p.mkdir(parents=True)
     return p
 
