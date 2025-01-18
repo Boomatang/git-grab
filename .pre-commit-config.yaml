@@ -18,6 +18,7 @@ repos:
   - id: no-commit-to-branch
     args:
       - --branch=master
+  - id: debug-statements
 - repo: https://github.com/pycqa/flake8
   rev: 6.0.0
   hooks:
