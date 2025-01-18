@@ -2,8 +2,9 @@
 
 """Top-level package for grab."""
 
-__version__ = "0.6.1"
+__version__ = "0.6.2"
 __releases__ = [
+    "0.6.2",
     "0.6.1",
     "0.6.0",
     "0.5.0",
