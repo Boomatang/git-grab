@@ -42,8 +42,11 @@ class Repository:
         self.site = parse[0]
         parse = parse[1].split("/")
         self.owner = parse[0]
-        parse = parse[1].split(".")
-        self.project = parse[0]
+        if parse[1].endswith(".git"):
+            self.project = parse[1][:-4]
+        else:
+            logger.error('expected input to end with ".git"')
+            exit(1)
 
     def __repr__(self):
         return f"{self.site}/{self.owner}/{self.project}"
