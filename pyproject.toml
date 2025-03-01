@@ -40,3 +40,8 @@ profile = "black"
 
 [tool.bandit]
 assert_used.skips = ['*_testpy', '*/test_*.py']
+
+[tool.towncrier]
+filename = "CHANGELOG.md"
+directory = "changes"
+package = "git_grab"
