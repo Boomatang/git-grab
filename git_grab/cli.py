@@ -180,14 +180,15 @@ def cli():
         "-r", "--remote", help="Add remote to existing repo.", action="store_true"
     )
     parser.add_argument("--debug", help="Enable debug mode.", action="store_true")
-    parser.add_argument("--version", help="Print version.", action="store_true")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s, version {__version__}",
+    )
     args = parser.parse_args()
     configure_logger(logger, debug=args.debug)
 
     logger.debug(f"{args=}")
-
-    if args.version:
-        logger.info(f"version: {__version__}")
 
     if args.temp and args.path is not None:
         logger.error("Cannot specify both --temp and --path.")
