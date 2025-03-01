@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import List
 from urllib.parse import ParseResult, urlparse
 
-from .__init__ import __version__
+from git_grab import __version__
 
 logger = logging.getLogger("grab")
 
@@ -18,7 +18,7 @@ class Repository:
     project: str
     clone: str
 
-    def __init__(self, repo):
+    def __init__(self, repo: str) -> None:
         logger.debug(f"Repository: {repo}")
         parsed = urlparse(repo)
         if len(parsed.scheme) == 0:
@@ -27,34 +27,34 @@ class Repository:
             self.url_parser(parsed)
         self.clone = repo
 
-    def url_parser(self, parse: ParseResult):
+    def url_parser(self, parse: ParseResult) -> None:
         logger.debug(f"Url parser: {parse}")
         # https://github.com/Boomatang/git-grab.git
-        self.site = parse.hostname
+        self.site = parse.hostname if parse.hostname is not None else ""
         string = parse.path.split("/")
         self.owner = string[1]
         string = string[2].split(".")
         self.project = string[0]
 
-    def git_parser(self, parse: str):
+    def git_parser(self, parse: str) -> None:
         logger.debug(f"Git parser: {parse}")
         # git@github.com:Boomatang/git-grab.git
-        parse = parse.split("@")
-        parse = parse[1].split(":")
-        self.site = parse[0]
-        parse = parse[1].split("/")
-        self.owner = parse[0]
-        if parse[1].endswith(".git"):
-            self.project = parse[1][:-4]
+        elements: list[str] = parse.split("@")
+        elements = elements[1].split(":")
+        self.site = elements[0]
+        elements = elements[1].split("/")
+        self.owner = elements[0]
+        if elements[1].endswith(".git"):
+            self.project = elements[1][:-4]
         else:
             logger.error('expected input to end with ".git"')
             exit(1)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.site}/{self.owner}/{self.project}"
 
 
-def configure_logger(logger, debug=False):
+def configure_logger(logger: logging.Logger, debug: bool = False) -> None:
     ch = logging.StreamHandler()
     if debug:
         logger.setLevel(logging.DEBUG)
@@ -67,8 +67,8 @@ def configure_logger(logger, debug=False):
     logger.addHandler(ch)
 
 
-def create_project_path(path: Path, repo: Repository):
-    p = Path(path, repo.site, repo.owner, repo.project)
+def create_project_path(path: Path, repo: Repository) -> Path:
+    p: Path = Path(path, repo.site, repo.owner, repo.project)
     logger.debug(f"Creating project path: {p}, if not already exists")
     if p.is_dir():
         logger.warning(f'Directory "{p}" already exists.')
@@ -78,7 +78,7 @@ def create_project_path(path: Path, repo: Repository):
     return p
 
 
-def clone(path: Path, repo: Repository):
+def clone(path: Path, repo: Repository) -> None:
     logger.info(f"Starting to clone {repo}")
     value = subprocess.run(
         ["git", "-C", str(path), "clone", "--bare", repo.clone, ".bare"],
@@ -91,14 +91,14 @@ def clone(path: Path, repo: Repository):
         logger.info(f"Successfully cloned {repo}")
 
 
-def link_git(path: Path):
+def link_git(path: Path) -> None:
     logger.debug("Creating .git file")
     git_file = Path(path, ".git")
     with open(git_file, "w") as f:
         f.write("gitdir: .bare")
 
 
-def make_main_worktree(path: Path):
+def make_main_worktree(path: Path) -> None:
     logger.debug("Creating initial main work tree")
 
     value = subprocess.run(
@@ -126,7 +126,7 @@ def get_paths(path: Path, repo: Repository) -> List[Path]:
     return out
 
 
-def add_remote(origin: Path, repo: Repository):
+def add_remote(origin: Path, repo: Repository) -> None:
     logger.debug(f"Checking if remote {repo.owner} exists")
     value = subprocess.run(
         ["git", "-C", str(origin), "remote"], capture_output=True
@@ -152,7 +152,7 @@ def add_remote(origin: Path, repo: Repository):
     logger.info(f"Successfully added remote {repo.owner} to {origin}")
 
 
-def cli():
+def cli() -> None:
     parser = argparse.ArgumentParser(
         prog="grab",
         description="grab clones the give repositories into a structure "
@@ -201,7 +201,7 @@ def cli():
         path = args.path
         logger.debug(f"Using path {path}")
     else:
-        path = os.getenv("GRAB_PATH", None)
+        path = os.getenv("GRAB_PATH", "")
         logger.debug(f"Using default path {path}")
 
         if path is None:
@@ -209,24 +209,24 @@ def cli():
             logger.info("Set GRAB_PATH environment variable or use --path.")
             exit(1)
 
-    path = Path(path)
-    if not path.is_dir():
-        logger.error(f'Path "{path}" not a directory.')
-        logger.info(f"Please create the directory: {path}")
+    path_dir = Path(path)
+    if not path_dir.is_dir():
+        logger.error(f'Path "{path_dir}" not a directory.')
+        logger.info(f"Please create the directory: {path_dir}")
         exit(1)
 
     for repo in args.REPOS:
         r = Repository(repo)
         if args.remote:
             logger.info(f"Processing remote {r}")
-            origins = get_paths(path, r)
+            origins = get_paths(path_dir, r)
             if len(origins) == 0:
                 logger.warning(f"No origins found for {r}")
             for origin in origins:
                 add_remote(origin, r)
         else:
             logger.info(f"Processing repository {r}")
-            project_path = create_project_path(path, r)
+            project_path = create_project_path(path_dir, r)
 
             clone(project_path, r)
             link_git(project_path)
