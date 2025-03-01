@@ -63,3 +63,12 @@ grab -r <repo route> -p <some/other/path>
 ## Warning
 All the functions are case-sensitive.
 This can be problematic when adding remotes to existing cloned repos.
+
+## Dev
+### Creating the changelog
+
+On new changes a news fragment is required.
+This can be created by and news fragments to the `changes` directory.
+These files are should have the following naming schema `<issue id>.<feature|bugfix|dic|removal|misc>`.
+Using `towncrier create -c "change message" <file name>` will also create the file for you in the correct location.
+
