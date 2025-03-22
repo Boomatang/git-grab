@@ -112,6 +112,26 @@ def make_main_worktree(path: Path) -> None:
         logger.info("Successfully created main work tree")
 
 
+def configure_origin_fetch(path: Path) -> None:
+    logger.debug("Configure fetch for origin")
+    value = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(path),
+            "config",
+            "remote.origin.fetch",
+            "+refs/heads/*:refs/remotes/origin/*",
+        ],
+        capture_output=True,
+    )  # nosec
+    if value.returncode != 0:
+        logger.error("Failed to configure origin fetch")
+        logger.debug(f"error: {value.stderr.decode()}")
+    else:
+        logger.info("Successfully configured origin fetch")
+
+
 def get_paths(path: Path, repo: Repository) -> List[Path]:
     out = []
 
@@ -231,6 +251,7 @@ def cli() -> None:
             clone(project_path, r)
             link_git(project_path)
             make_main_worktree(project_path)
+            configure_origin_fetch(project_path)
 
 
 if __name__ == "__main__":
