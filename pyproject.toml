@@ -1,10 +1,10 @@
 [tool.poetry]
 name = "git-grab"
-version = "0.6.2"
+version = "0.7.0"
 description = "Git Helper Tool"
 authors = ["Jim Fitzpatrick <jfitzpat@redhat.com>"]
 license = "MIT"
-readme = "README.md"
+readme = ["README.md", "CHANGELOG.md"]
 packages = [{include = "git_grab"}]
 classifiers = [
     "License :: OSI Approved :: MIT License",
