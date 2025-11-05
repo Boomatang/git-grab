@@ -78,10 +78,24 @@ def create_project_path(path: Path, repo: Repository) -> Path:
     return p
 
 
-def clone(path: Path, repo: Repository) -> None:
+def create_project_root(path: Path, repo: Repository) -> Path:
+    p: Path = Path(path, repo.site, repo.owner)
+    logger.debug(f"Creating project root: {p}, if not already exists")
+    if p.is_dir():
+        logger.warning(f'Directory "{p}" already exists.')
+        return p
+    p.mkdir(parents=True)
+    return p
+
+
+def clone(path: Path, repo: Repository, bare: bool = True) -> None:
     logger.info(f"Starting to clone {repo}")
+    if bare:
+        cmd = ["git", "-C", str(path), "clone", "--bare", repo.clone, ".bare"]
+    else:
+        cmd = ["git", "-C", str(path), "clone", repo.clone]
     value = subprocess.run(
-        ["git", "-C", str(path), "clone", "--bare", repo.clone, ".bare"],
+        cmd,
         capture_output=True,
     )  # nosec
     if value.returncode != 0:
@@ -220,6 +234,11 @@ def cli() -> None:
     )
     parser.add_argument("--debug", help="Enable debug mode.", action="store_true")
     parser.add_argument(
+        "--non-worktree",
+        help="Clone repo in standard non worktree structure.",
+        action="store_true",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"%(prog)s, version {__version__}",
@@ -265,13 +284,18 @@ def cli() -> None:
                 add_remote(origin, r)
         else:
             logger.info(f"Processing repository {r}")
-            project_path = create_project_path(path_dir, r)
 
-            clone(project_path, r)
-            link_git(project_path)
-            make_main_worktree(project_path)
-            configure_origin_fetch(project_path)
-            initial_fetch_origin(project_path)
+            if args.non_worktree:
+                logger.info("clone simple repo")
+                project_root = create_project_root(path_dir, r)
+                clone(project_root, r, bare=False)
+            else:
+                project_path = create_project_path(path_dir, r)
+                clone(project_path, r)
+                link_git(project_path)
+                make_main_worktree(project_path)
+                configure_origin_fetch(project_path)
+                initial_fetch_origin(project_path)
 
 
 if __name__ == "__main__":
