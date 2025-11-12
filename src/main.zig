@@ -61,12 +61,22 @@ pub fn main() !void {
 
     for (res.positionals[0]) |repo| {
         std.debug.print("working on repo: {s}\n", .{repo});
+
+        const project = grab.Project.init(repo) catch |err| switch (err) {
+            error.parse => {
+                std.debug.print("unable to parse: {s}\n", .{repo});
+                std.process.exit(1);
+            },
+            else => return err,
+        };
+
+        std.debug.print("Project Data:\n\tSite: {s}\n\tOwner: {s}\n\tName: {s}\n\tClone: {s}\n", .{ project.site, project.owner, project.name, project.clone });
         if (res.args.remote != 0) {
             std.debug.print("adding repo as remote\n", .{});
         } else {
-            grab.clone(allocator, repo) catch |err| switch (err) {
+            grab.clone(allocator, project) catch |err| switch (err) {
                 error.exists => {
-                    std.debug.print("Unable to clone: {s}, path not empty\n", .{repo});
+                    std.debug.print("Unable to clone: {s}, path not empty\n", .{project.name});
                     std.process.exit(1);
                 },
                 else => {
@@ -74,7 +84,6 @@ pub fn main() !void {
                     return err;
                 },
             };
-            std.debug.print("cloning repo\n", .{});
         }
     }
 }
