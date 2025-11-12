@@ -62,7 +62,7 @@ pub fn main() !void {
     for (res.positionals[0]) |repo| {
         std.debug.print("working on repo: {s}\n", .{repo});
 
-        const project = grab.Project.init(repo) catch |err| switch (err) {
+        var project = grab.Project.init(repo) catch |err| switch (err) {
             error.parse => {
                 std.debug.print("unable to parse: {s}\n", .{repo});
                 std.process.exit(1);
@@ -74,6 +74,9 @@ pub fn main() !void {
         if (res.args.remote != 0) {
             std.debug.print("adding repo as remote\n", .{});
         } else {
+            const cwd = std.fs.cwd();
+            const path = try grab.createPath(cwd, &[_][]const u8{ project.site, project.owner });
+            project.root = path;
             grab.clone(allocator, project) catch |err| switch (err) {
                 error.exists => {
                     std.debug.print("Unable to clone: {s}, path not empty\n", .{project.name});
