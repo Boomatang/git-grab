@@ -1,5 +1,6 @@
 const std = @import("std");
 const clap = @import("clap");
+const grab = @import("grab");
 
 // TODO: Need to set up some way to pull the version from the zon file.
 const version = "x.y.z";
@@ -7,6 +8,7 @@ const version = "x.y.z";
 pub fn main() !void {
     var gpa = std.heap.DebugAllocator(.{}){};
     defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
 
     const params = comptime clap.parseParamsComptime(
         \\<REPO>... Git repositrories to clone.
@@ -62,6 +64,16 @@ pub fn main() !void {
         if (res.args.remote != 0) {
             std.debug.print("adding repo as remote\n", .{});
         } else {
+            grab.clone(allocator, repo) catch |err| switch (err) {
+                error.exists => {
+                    std.debug.print("Unable to clone: {s}, path not empty\n", .{repo});
+                    std.process.exit(1);
+                },
+                else => {
+                    std.debug.print("unhandled error\n", .{});
+                    return err;
+                },
+            };
             std.debug.print("cloning repo\n", .{});
         }
     }
