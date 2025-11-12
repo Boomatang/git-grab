@@ -1,9 +1,37 @@
 const std = @import("std");
 
-pub fn clone(allocator: std.mem.Allocator, repo: []const u8) !void {
-    std.debug.print("cloning: {s}\n", .{repo});
+pub const Project = struct {
+    site: []const u8,
+    owner: []const u8,
+    name: []const u8,
+    clone: []const u8,
 
-    const cmd = [_][]const u8{ "git", "clone", repo };
+    pub fn init(repo: []const u8) !Project {
+        if (!std.mem.startsWith(u8, repo, "git") or !std.mem.endsWith(u8, repo, "git")) {
+            return error.parse;
+        }
+        const _clone = repo;
+
+        var min = std.mem.indexOf(u8, repo, "@") orelse return error.parse;
+        var max = std.mem.indexOf(u8, repo, ":") orelse return error.parse;
+        const _site = repo[min + 1 .. max];
+
+        min = std.mem.indexOf(u8, repo, ":") orelse return error.parse;
+        max = std.mem.indexOf(u8, repo, "/") orelse return error.parse;
+        const _owner = repo[min + 1 .. max];
+
+        min = std.mem.indexOf(u8, repo, "/") orelse return error.parse;
+        max = std.mem.indexOf(u8, repo, ".git") orelse return error.parse;
+        const _name = repo[min + 1 .. max];
+
+        return .{ .site = _site, .owner = _owner, .name = _name, .clone = _clone };
+    }
+};
+
+pub fn clone(allocator: std.mem.Allocator, project: Project) !void {
+    std.debug.print("cloning: {s}\n", .{project.name});
+
+    const cmd = [_][]const u8{ "git", "clone", project.clone };
     const result = std.process.Child.run(.{
         .allocator = allocator,
         .argv = &cmd,
