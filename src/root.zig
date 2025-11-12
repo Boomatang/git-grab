@@ -1,23 +1,24 @@
-//! By convention, root.zig is the root source file when making a library.
 const std = @import("std");
 
-pub fn bufferedPrint() !void {
-    // Stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    var stdout_buffer: [1024]u8 = undefined;
-    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
-    const stdout = &stdout_writer.interface;
+pub fn clone(allocator: std.mem.Allocator, repo: []const u8) !void {
+    std.debug.print("cloning: {s}\n", .{repo});
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
-
-    try stdout.flush(); // Don't forget to flush!
-}
-
-pub fn add(a: i32, b: i32) i32 {
-    return a + b;
-}
-
-test "basic add functionality" {
-    try std.testing.expect(add(3, 7) == 10);
+    const cmd = [_][]const u8{ "git", "clone", repo };
+    const result = std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = &cmd,
+        .cwd = null,
+        .env_map = null,
+        .max_output_bytes = 1024 * 1024, // 1MB max output
+    }) catch |err| {
+        std.debug.print("Failed to run git clone: {}\n", .{err});
+        return err;
+    };
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+    if (std.mem.startsWith(u8, result.stderr, "fatal")) {
+        if (std.mem.endsWith(u8, result.stderr, "already exists and is not an empty directory.\n")) {
+            return error.exists;
+        }
+    }
 }
