@@ -63,6 +63,15 @@ pub fn main() !void {
         config.path = .{ .provided = path };
         std.debug.print("using {s} as path\n", .{path});
     } else {
+        const path = std.process.getEnvVarOwned(allocator, "GRAB_PATH") catch {
+            std.debug.print("unable to get GRAB_PATH, please set or use --temp or --path\n", .{});
+            std.process.exit(1);
+        };
+        if (path.len == 0) {
+            std.debug.print("unable to get GRAB_PATH, please set or use --temp or --path\n", .{});
+            std.process.exit(1);
+        }
+        config.path = .{ .allocated = path };
         std.debug.print("try to get path from env\n", .{});
     }
 
