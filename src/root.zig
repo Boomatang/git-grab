@@ -29,6 +29,14 @@ pub const Project = struct {
     }
 };
 
+pub const Configuration = struct {
+    path: ?[]const u8 = null,
+
+    pub fn init() Configuration {
+        return Configuration{};
+    }
+};
+
 pub fn clone(allocator: std.mem.Allocator, project: Project) !void {
     std.debug.print("cloning: {s}\n", .{project.name});
 
@@ -70,4 +78,13 @@ fn _createPath(cwd: std.fs.Dir, path: []const u8) !std.fs.Dir {
         else => return err,
     };
     return try cwd.openDir(path, .{});
+}
+
+pub fn setLocation(config: Configuration) !void {
+    if (config.path) |path| {
+        std.debug.print("change path to: {s}\n", .{path});
+        try std.posix.chdir(path);
+    } else {
+        std.debug.print("no path was set\n", .{});
+    }
 }
