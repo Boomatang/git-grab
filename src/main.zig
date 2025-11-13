@@ -41,6 +41,8 @@ pub fn main() !void {
     if (res.args.version != 0)
         std.debug.print("grab: {s}\n", .{version});
 
+    var config = grab.Configuration.init();
+
     if (res.args.temp != 0 and res.args.path != null) {
         std.debug.print("Cannot specify both --temp and --path\n", .{});
         return error.noreturn; // FIXME: need better error value
@@ -54,10 +56,13 @@ pub fn main() !void {
     if (res.args.temp != 0) {
         std.debug.print("using temp as path\n", .{});
     } else if (res.args.path) |path| {
+        config.path = path;
         std.debug.print("using {s} as path\n", .{path});
     } else {
         std.debug.print("try to get path from env\n", .{});
     }
+
+    try grab.setLocation(config);
 
     for (res.positionals[0]) |repo| {
         std.debug.print("working on repo: {s}\n", .{repo});
