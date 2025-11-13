@@ -21,6 +21,15 @@ pub fn build(b: *std.Build) void {
     // target and optimize options) will be listed when running `zig build --help`
     // in this directory.
 
+    // My version stuff
+    const options = b.addOptions();
+
+    const zon_content = std.fs.cwd().readFileAlloc(b.allocator, "build.zig.zon", 1024 * 1024) catch @panic("Failed to read build.zig.zon");
+    defer b.allocator.free(zon_content);
+
+    const version = parseVersionFromZon(zon_content);
+    options.addOption([]const u8, "version", version);
+
     // This creates a module, which represents a collection of source files alongside
     // some compilation options, such as optimization mode and linked system libraries.
     // Zig modules are the preferred way of making Zig code available to consumers.
@@ -95,6 +104,7 @@ pub fn build(b: *std.Build) void {
     });
 
     exe.root_module.addImport("clap", clap.module("clap"));
+    exe.root_module.addOptions("build_options", options);
 
     // This declares intent for the executable to be installed into the
     // install prefix when running `zig build` (i.e. when executing the default
@@ -166,4 +176,16 @@ pub fn build(b: *std.Build) void {
     //
     // Lastly, the Zig build system is relatively simple and self-contained,
     // and reading its source code will allow you to master it.
+}
+
+fn parseVersionFromZon(zon: []const u8) []const u8 {
+    const needle = ".version = \"";
+    if (std.mem.indexOf(u8, zon, needle)) |start| {
+        const version_start = start + needle.len;
+        if (std.mem.indexOfPos(u8, zon, version_start, "\"")) |end| {
+            return zon[version_start..end];
+        }
+    }
+
+    return "unknown";
 }

@@ -3,9 +3,6 @@ const clap = @import("clap");
 const grab = @import("grab");
 const help = @import("help");
 
-// TODO: Need to set up some way to pull the version from the zon file.
-const version = "x.y.z";
-
 pub fn main() !void {
     var gpa = std.heap.DebugAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -39,8 +36,11 @@ pub fn main() !void {
 
     if (res.args.help != 0)
         return clap.helpToFile(.stderr(), clap.Help, &params, .{});
-    if (res.args.version != 0)
-        std.debug.print("grab: {s}\n", .{version});
+    if (res.args.version != 0) {
+        const build_options = @import("build_options");
+        std.debug.print("grab: {s}\n", .{build_options.version});
+        std.process.exit(0);
+    }
 
     var config = grab.Configuration.init();
     defer config.deinit(allocator);
