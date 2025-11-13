@@ -1,6 +1,7 @@
 const std = @import("std");
 const clap = @import("clap");
 const grab = @import("grab");
+const help = @import("help");
 
 // TODO: Need to set up some way to pull the version from the zon file.
 const version = "x.y.z";
@@ -42,6 +43,7 @@ pub fn main() !void {
         std.debug.print("grab: {s}\n", .{version});
 
     var config = grab.Configuration.init();
+    defer config.deinit(allocator);
 
     if (res.args.temp != 0 and res.args.path != null) {
         std.debug.print("Cannot specify both --temp and --path\n", .{});
@@ -54,9 +56,11 @@ pub fn main() !void {
     }
 
     if (res.args.temp != 0) {
+        const path = try help.getTempDir(allocator);
+        config.path = .{ .allocated = path };
         std.debug.print("using temp as path\n", .{});
     } else if (res.args.path) |path| {
-        config.path = path;
+        config.path = .{ .provided = path };
         std.debug.print("using {s} as path\n", .{path});
     } else {
         std.debug.print("try to get path from env\n", .{});
