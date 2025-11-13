@@ -29,11 +29,35 @@ pub const Project = struct {
     }
 };
 
+pub const PathSource = union(enum) {
+    provided: []const u8,
+    allocated: []const u8,
+    none,
+};
+
 pub const Configuration = struct {
-    path: ?[]const u8 = null,
+    path: ?PathSource = .none,
 
     pub fn init() Configuration {
         return Configuration{};
+    }
+
+    pub fn deinit(self: *Configuration, allocator: std.mem.Allocator) void {
+        if (self.path) |path| {
+            switch (path) {
+                .allocated => |p| allocator.free(p),
+                .provided, .none => {},
+            }
+        }
+    }
+
+    pub fn getPath(self: *const Configuration) ?[]const u8 {
+        const path = self.path orelse return null;
+        return switch (path) {
+            .provided => |p| p,
+            .allocated => |p| p,
+            .none => null,
+        };
     }
 };
 
@@ -81,7 +105,7 @@ fn _createPath(cwd: std.fs.Dir, path: []const u8) !std.fs.Dir {
 }
 
 pub fn setLocation(config: Configuration) !void {
-    if (config.path) |path| {
+    if (config.getPath()) |path| {
         std.debug.print("change path to: {s}\n", .{path});
         try std.posix.chdir(path);
     } else {
