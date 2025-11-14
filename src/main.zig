@@ -80,7 +80,7 @@ pub fn main() !void {
     for (res.positionals[0]) |repo| {
         std.debug.print("working on repo: {s}\n", .{repo});
 
-        var project = grab.Project.init(repo) catch |err| switch (err) {
+        const project = grab.Project.init(repo) catch |err| switch (err) {
             error.parse => {
                 std.debug.print("unable to parse: {s}\n", .{repo});
                 std.process.exit(1);
@@ -90,21 +90,50 @@ pub fn main() !void {
 
         std.debug.print("Project Data:\n\tSite: {s}\n\tOwner: {s}\n\tName: {s}\n\tClone: {s}\n", .{ project.site, project.owner, project.name, project.clone });
         if (res.args.remote != 0) {
-            std.debug.print("adding repo as remote\n", .{});
-        } else {
-            const cwd = std.fs.cwd();
-            const path = try grab.createPath(cwd, &[_][]const u8{ project.site, project.owner });
-            project.root = path;
-            grab.clone(allocator, project) catch |err| switch (err) {
-                error.exists => {
-                    std.debug.print("Unable to clone: {s}, path not empty\n", .{project.name});
-                    std.process.exit(1);
-                },
-                else => {
-                    std.debug.print("unhandled error\n", .{});
-                    return err;
-                },
-            };
+            config.action = .remote;
+        }
+        switch (config.action) {
+            .clone => try clone(allocator, project),
+            .remote => try addRemote(allocator, project),
         }
     }
+}
+
+fn clone(allocator: std.mem.Allocator, project: grab.Project) !void {
+    var project_ = project;
+    const cwd = std.fs.cwd();
+    const path = try grab.createPath(cwd, &[_][]const u8{ project_.site, project_.owner });
+    project_.root = path;
+    grab.clone(allocator, project) catch |err| switch (err) {
+        error.exists => {
+            std.debug.print("Unable to clone: {s}, path not empty\n", .{project_.name});
+            std.process.exit(1);
+        },
+        else => {
+            std.debug.print("unhandled error: {any}\n", .{err});
+            std.process.exit(1);
+        },
+    };
+}
+
+fn addRemote(allocator: std.mem.Allocator, project: grab.Project) !void {
+    var paths = std.ArrayList([]const u8){};
+    defer {
+        for (paths.items) |i| {
+            allocator.free(i);
+        }
+        paths.deinit(allocator);
+    }
+    try grab.findPaths(allocator, &paths, project.name);
+    std.debug.print("Remote \"{s}\" is being added to the following projects:\n", .{project.owner});
+    for (paths.items) |path| {
+        std.debug.print("\t{s}\n", .{path});
+    }
+    for (paths.items) |path| {
+        grab.addRemote(allocator, project, path) catch |err| switch (err) {
+            error.RemoteExists => std.debug.print("Skipping adding remote to {s}, as remote already exists\n", .{path}),
+            else => return err,
+        };
+    }
+    std.debug.print("Success\n", .{});
 }

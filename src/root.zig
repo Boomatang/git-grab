@@ -29,6 +29,11 @@ pub const Project = struct {
     }
 };
 
+pub const Action = enum {
+    clone,
+    remote,
+};
+
 pub const PathSource = union(enum) {
     provided: []const u8,
     allocated: []const u8,
@@ -37,6 +42,7 @@ pub const PathSource = union(enum) {
 
 pub const Configuration = struct {
     path: ?PathSource = .none,
+    action: Action = .clone,
 
     pub fn init() Configuration {
         return Configuration{};
@@ -110,5 +116,79 @@ pub fn setLocation(config: Configuration) !void {
         try std.posix.chdir(path);
     } else {
         std.debug.print("no path was set\n", .{});
+    }
+}
+
+pub fn findPaths(allocator: std.mem.Allocator, paths: *std.ArrayList([]const u8), projectName: []const u8) !void {
+    const cwd = try std.fs.cwd().openDir(".", .{ .iterate = true });
+    var walker = try cwd.walk(allocator);
+    defer walker.deinit();
+
+    while (true) {
+        const entry = walker.next() catch |err| {
+            if (err == error.AccessDenied) continue;
+            return err;
+        } orelse break;
+
+        if (entry.kind == .directory and std.mem.eql(u8, entry.basename, projectName)) {
+            if (try isGitRepo(entry.path)) try paths.append(allocator, try allocator.dupe(u8, entry.path));
+        }
+    }
+}
+
+fn isGitRepo(path: []const u8) !bool {
+    const temp = try std.fs.cwd().openDir(".", .{ .iterate = true });
+    const cwd = try temp.openDir(path, .{ .iterate = true });
+    const subPaths = [_][]const u8{ ".git", ".bare" };
+
+    for (subPaths) |p| {
+        var isRepo = true;
+        _ = cwd.openDir(p, .{}) catch |err| switch (err) {
+            error.NotDir => isRepo = false,
+            error.FileNotFound => isRepo = false,
+            else => return err,
+        };
+        if (isRepo) return isRepo;
+    }
+
+    return false;
+}
+
+pub fn addRemote(allocator: std.mem.Allocator, project: Project, path: []const u8) !void {
+    const checkCmd = [_][]const u8{ "git", "remote" };
+    const checkResult = std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = &checkCmd,
+        .cwd = path,
+    }) catch |err| {
+        std.debug.print("Failed to run git remote: {}\n", .{err});
+        return err;
+    };
+    defer {
+        allocator.free(checkResult.stdout);
+        allocator.free(checkResult.stderr);
+    }
+
+    var output = std.mem.splitSequence(u8, checkResult.stdout, "\n");
+    var value = output.first();
+    while (true) {
+        if (std.mem.eql(u8, value, project.owner)) {
+            return error.RemoteExists;
+        }
+        value = output.next() orelse break;
+    }
+
+    const addCmd = [_][]const u8{ "git", "remote", "add", project.owner, project.clone };
+    const addResult = std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = &addCmd,
+        .cwd = path,
+    }) catch |err| {
+        std.debug.print("Failed to run git remote: {}\n", .{err});
+        return err;
+    };
+    defer {
+        allocator.free(addResult.stdout);
+        allocator.free(addResult.stderr);
     }
 }
