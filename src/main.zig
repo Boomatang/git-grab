@@ -13,8 +13,8 @@ pub fn main() !void {
         \\-h, --help       show this help message and exit
         \\-p, --path <PATH>  Overrides the path set in the GRAB_PATH environment variable.
         \\-t, --temp       Download repositories to a temporary directory. This will be the OS default temporary directory.
+        \\-s, --standard Standard clone, normal clone is done using worktrees.
         \\-r, --remote     Add remote to existing repo.
-        \\--debug          Enable debug mode.
         \\--version        Show program's version number and exit
     );
 
@@ -47,12 +47,16 @@ pub fn main() !void {
 
     if (res.args.temp != 0 and res.args.path != null) {
         std.debug.print("Cannot specify both --temp and --path\n", .{});
-        return error.noreturn; // FIXME: need better error value
+        std.posix.exit(1);
     }
 
+    if (res.args.standard != 0 and res.args.remote != 0) {
+        std.debug.print("Cannot specify both --standard and --remote\n", .{});
+        std.posix.exit(1);
+    }
     if (res.positionals[0].len == 0) {
         std.debug.print("At least one repo must be provided\n", .{});
-        return error.noreturn; // FIXME: need better error value
+        std.posix.exit(1);
     }
 
     if (res.args.temp != 0) {
@@ -74,6 +78,13 @@ pub fn main() !void {
         config.path = .{ .allocated = path };
         std.debug.print("try to get path from env\n", .{});
     }
+    if (res.args.remote != 0) {
+        config.action = .remote;
+    }
+
+    if (res.args.standard != 0) {
+        config.action = .standard;
+    }
 
     try grab.setLocation(config);
 
@@ -89,11 +100,10 @@ pub fn main() !void {
         };
 
         std.debug.print("Project Data:\n\tSite: {s}\n\tOwner: {s}\n\tName: {s}\n\tClone: {s}\n", .{ project.site, project.owner, project.name, project.clone });
-        if (res.args.remote != 0) {
-            config.action = .remote;
-        }
+
         switch (config.action) {
-            .clone => try clone(allocator, project),
+            .standard => try clone(allocator, project),
+            .worktree => try worktree(allocator, project),
             .remote => try addRemote(allocator, project),
         }
     }
@@ -104,7 +114,7 @@ fn clone(allocator: std.mem.Allocator, project: grab.Project) !void {
     const cwd = std.fs.cwd();
     const path = try grab.createPath(cwd, &[_][]const u8{ project_.site, project_.owner });
     project_.root = path;
-    grab.clone(allocator, project) catch |err| switch (err) {
+    grab.clone(allocator, project_, .{ .bare = false }) catch |err| switch (err) {
         error.exists => {
             std.debug.print("Unable to clone: {s}, path not empty\n", .{project_.name});
             std.process.exit(1);
@@ -136,4 +146,28 @@ fn addRemote(allocator: std.mem.Allocator, project: grab.Project) !void {
         };
     }
     std.debug.print("Success\n", .{});
+}
+
+fn worktree(allocator: std.mem.Allocator, project: grab.Project) !void {
+    std.debug.print("Config worktree deployment\n", .{});
+    var project_ = project;
+    const cwd = std.fs.cwd();
+    const path = try grab.createPath(cwd, &[_][]const u8{ project_.site, project_.owner, project_.name });
+    project_.root = path;
+    grab.clone(allocator, project_, .{ .bare = true }) catch |err| switch (err) {
+        error.exists => {
+            std.debug.print("Unable to clone: {s}, path not empty\n", .{project_.name});
+            std.process.exit(1);
+        },
+        else => {
+            std.debug.print("unhandled error: {any}\n", .{err});
+            std.process.exit(1);
+        },
+    };
+
+    if (project_.root) |root| {
+        try grab.linkGit(root);
+        try grab.setupOrigin(allocator, root);
+        try grab.fetchOrigin(allocator, root);
+    }
 }
