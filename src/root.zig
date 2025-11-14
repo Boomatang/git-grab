@@ -30,8 +30,13 @@ pub const Project = struct {
 };
 
 pub const Action = enum {
-    clone,
+    worktree,
     remote,
+    standard,
+};
+
+pub const CloneOptions = struct {
+    bare: bool,
 };
 
 pub const PathSource = union(enum) {
@@ -42,7 +47,7 @@ pub const PathSource = union(enum) {
 
 pub const Configuration = struct {
     path: ?PathSource = .none,
-    action: Action = .clone,
+    action: Action = .worktree,
 
     pub fn init() Configuration {
         return Configuration{};
@@ -67,13 +72,16 @@ pub const Configuration = struct {
     }
 };
 
-pub fn clone(allocator: std.mem.Allocator, project: Project) !void {
+pub fn clone(allocator: std.mem.Allocator, project: Project, opts: CloneOptions) !void {
     std.debug.print("cloning: {s}\n", .{project.name});
 
-    const cmd = [_][]const u8{ "git", "clone", project.clone };
+    const cmd = if (opts.bare)
+        &[_][]const u8{ "git", "clone", "--bare", project.clone, ".bare" }
+    else
+        &[_][]const u8{ "git", "clone", project.clone };
     const result = std.process.Child.run(.{
         .allocator = allocator,
-        .argv = &cmd,
+        .argv = cmd,
         .cwd_dir = project.root,
         .max_output_bytes = 1024 * 1024, // 1MB max output
     }) catch |err| {
@@ -190,5 +198,49 @@ pub fn addRemote(allocator: std.mem.Allocator, project: Project, path: []const u
     defer {
         allocator.free(addResult.stdout);
         allocator.free(addResult.stderr);
+    }
+}
+
+pub fn linkGit(path: std.fs.Dir) !void {
+    std.debug.print("Creating .git file\n", .{});
+    const file = try path.createFile(".git", .{ .exclusive = true });
+    defer file.close();
+    try file.writeAll("gitdir: .bare");
+}
+
+pub fn setupOrigin(allocator: std.mem.Allocator, path: std.fs.Dir) !void {
+    const cmd = [_][]const u8{
+        "git",
+        "config",
+        "remote.origin.fetch",
+        "+refs/heads/*:refs/remotes/origin/*",
+    };
+    const result = std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = &cmd,
+        .cwd_dir = path,
+    }) catch |err| {
+        std.debug.print("Failed to run git config: {}\n", .{err});
+        return err;
+    };
+    defer {
+        allocator.free(result.stdout);
+        allocator.free(result.stderr);
+    }
+}
+
+pub fn fetchOrigin(allocator: std.mem.Allocator, path: std.fs.Dir) !void {
+    const cmd = [_][]const u8{ "git", "fetch", "-p", "origin" };
+    const result = std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = &cmd,
+        .cwd_dir = path,
+    }) catch |err| {
+        std.debug.print("Failed to run git fetch: {}\n", .{err});
+        return err;
+    };
+    defer {
+        allocator.free(result.stdout);
+        allocator.free(result.stderr);
     }
 }
