@@ -2,37 +2,50 @@
 
 ## Overview
 ```
-grab <url-to-repo>
-grab -r <url-to-remote-repo>
+grab <REPO>...
+grab --remote <REPO>...
+grab --standard <REPO>...
 grab --help
+grab --version
 ```
 
-## Configuring
-The environment variable `GARB_PATH` can be set to insure the default local of for storing the repos.
-At any time the environment variable can be overridden by the `-p` flag.
+## Repositories
+The Zig port expects SSH-style repo URLs that start with `git` and end in `.git`,
+for example:
+```
+git@github.com:Boomatang/git-grab.git
+```
+
+## Configuration
+`GRAB_PATH` sets the default base directory for storing repos. You can override
+it per run with `--path`.
+
+`--temp` downloads to the OS temp directory instead of `GRAB_PATH` or `--path`.
+
+`--temp` and `--path` are mutually exclusive.
 
 ## Cloning a repo
-To cloning a repo can be done using both the ssh or https routes.
-When cloning, the data is stored in the path defined in `GRAB_PATH`.
+Default behavior uses a worktree-based clone. For a standard clone, use
+`--standard`.
 ```shell
-grab <repo route>
+grab <REPO>
+grab --standard <REPO>
 ```
-To override the path at run time the `-p` flag can be used.
+Override the path at run time:
 ```shell
-grab <repo route> -p <some/other/path>
-```
-
-## Adding remotes to repos.
-The `-r` flag can be used to say the repo path is a remote of an existing repo.
-```shell
-grab -r <repo route>
-```
-This adds the `repo route` to all cloned repos in the path where the repo name matches.
-Using the `-p` flag allows setting the path where to search for repos.
-```shell
-grab -r <repo route> -p <some/other/path>
+grab <REPO> --path <some/other/path>
 ```
 
-# Warning
-All the functions are case-sensitive.
-This can be problematic when adding remotes to existing cloned repos.
+## Adding remotes to repos
+`--remote` treats the repo URL as a remote to add to existing clones with the
+same repo name under the configured path.
+```shell
+grab --remote <REPO>
+```
+Search a specific path:
+```shell
+grab --remote <REPO> --path <some/other/path>
+```
+
+## Warning
+All matching is case-sensitive, which can be problematic when adding remotes.

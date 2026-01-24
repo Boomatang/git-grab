@@ -1,7 +1,23 @@
-# Welcome to Git-Grab
-Git-grab is a helper tool used to quickly clone repos to the user system in a structured manner.
+# Welcome to Git-Grab (Zig port)
+Git-Grab is a helper tool that clones repositories into a structured directory
+layout so you do not have to remember where projects live.
 
+## Key features
+- Worktree-first cloning workflow (standard clone available)
+- Structured paths by host and owner
+- Add a remote to existing local clones
+- Optional temp directory cloning
 
-## Key Features
-- Cloning repos to a structured file system
-- Adding remotes to repos in the structured file system
+## Example layout
+```
+code
+└── github.com
+    └── Boomatang
+        ├── dotfiles
+        └── git-grab
+```
+
+## Quick start
+```
+grab git@github.com:Boomatang/git-grab.git
+```
