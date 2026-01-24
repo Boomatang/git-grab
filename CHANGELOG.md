@@ -2,9 +2,17 @@
 
 ## Features
 
+- Toggle from worktrees to standard clone
+
+  Allow the user with the `-s` to switch from a worktree configuration clone to a standard clone. (#15)
 - Zig Port
 
-  This version of git grab moves the python based version to a zig version.
+  This version of git grab moves the python based version to a zig version. (#41)
+- Configure towncrier for zig project (#42)
+
+## Misc
+
+- #25, #43
 
 
 # Git_Grab 0.7.0 (2025-03-22)
