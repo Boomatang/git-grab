@@ -1,3 +1,12 @@
+# git-grab 0.8.0 (2026-01-24)
+
+## Features
+
+- Zig Port
+
+  This version of git grab moves the python based version to a zig version.
+
+
 # Git_Grab 0.7.0 (2025-03-22)
 
 ### Features
