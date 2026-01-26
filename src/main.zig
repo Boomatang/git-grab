@@ -3,6 +3,35 @@ const clap = @import("clap");
 const grab = @import("grab");
 const help = @import("help");
 
+pub const Level = enum { info, debug, @"error", warn };
+pub const std_options: std.Options = .{
+    // Keep compile-time logging permissive; runtime filter in `log`.
+    .log_level = .debug,
+    .logFn = log,
+};
+
+pub var log_level: std.log.Level = .info;
+
+pub fn log(
+    comptime level: std.log.Level,
+    comptime scope: @Type(.enum_literal),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    const prefix = comptime blk: {
+        if (scope == .default)
+            break :blk "[" ++ level.asText() ++ "] ";
+        break :blk "[" ++ level.asText() ++ "][" ++ @tagName(scope) ++ "] ";
+    };
+    if (@intFromEnum(level) <= @intFromEnum(log_level)) {
+        // Print the message to stderr, silently ignoring any errors
+        std.debug.lockStdErr();
+        defer std.debug.unlockStdErr();
+        const stderr = std.fs.File.stderr().deprecatedWriter();
+        nosuspend stderr.print(prefix ++ format ++ "\n", args) catch return;
+    }
+}
+
 pub fn main() !void {
     var gpa = std.heap.DebugAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -15,12 +44,14 @@ pub fn main() !void {
         \\-t, --temp       Download repositories to a temporary directory. This will be the OS default temporary directory.
         \\-s, --standard Standard clone, normal clone is done using worktrees.
         \\-r, --remote     Add remote to existing repo.
+        \\--log-level <LEVEL> Set the log level. All logs are saved to file. Possible values are (debug, info, warn, error). Defualt level is info.
         \\--version        Show program's version number and exit
     );
 
     const parsers = comptime .{
         .PATH = clap.parsers.string,
         .REPO = clap.parsers.string,
+        .LEVEL = clap.parsers.enumeration(Level),
     };
 
     var diag = clap.Diagnostic{};
@@ -38,45 +69,58 @@ pub fn main() !void {
         return clap.helpToFile(.stderr(), clap.Help, &params, .{});
     if (res.args.version != 0) {
         const build_options = @import("build_options");
-        std.debug.print("grab: {s}\n", .{build_options.version});
+        std.log.info("grab: {s}", .{build_options.version});
         std.process.exit(0);
     }
 
     var config = grab.Configuration.init();
     defer config.deinit(allocator);
 
+    // Set up logger
+    var level = Level.info;
+    if (res.args.@"log-level") |l| {
+        level = l;
+    }
+
+    switch (level) {
+        .debug => log_level = std.log.Level.debug,
+        .@"error" => log_level = std.log.Level.err,
+        .info => log_level = std.log.Level.info,
+        .warn => log_level = std.log.Level.warn,
+    }
+
     if (res.args.temp != 0 and res.args.path != null) {
-        std.debug.print("Cannot specify both --temp and --path\n", .{});
+        std.log.err("Cannot specify both --temp and --path", .{});
         std.posix.exit(1);
     }
 
     if (res.args.standard != 0 and res.args.remote != 0) {
-        std.debug.print("Cannot specify both --standard and --remote\n", .{});
+        std.log.err("Cannot specify both --standard and --remote", .{});
         std.posix.exit(1);
     }
     if (res.positionals[0].len == 0) {
-        std.debug.print("At least one repo must be provided\n", .{});
+        std.log.err("At least one repo must be provided", .{});
         std.posix.exit(1);
     }
 
     if (res.args.temp != 0) {
         const path = try help.getTempDir(allocator);
         config.path = .{ .allocated = path };
-        std.debug.print("using temp as path\n", .{});
+        std.log.info("using temp as path", .{});
     } else if (res.args.path) |path| {
         config.path = .{ .provided = path };
-        std.debug.print("using {s} as path\n", .{path});
+        std.log.info("using {s} as path", .{path});
     } else {
         const path = std.process.getEnvVarOwned(allocator, "GRAB_PATH") catch {
-            std.debug.print("unable to get GRAB_PATH, please set or use --temp or --path\n", .{});
+            std.log.err("unable to get GRAB_PATH, please set or use --temp or --path", .{});
             std.process.exit(1);
         };
         if (path.len == 0) {
-            std.debug.print("unable to get GRAB_PATH, please set or use --temp or --path\n", .{});
+            std.log.err("unable to get GRAB_PATH, please set or use --temp or --path", .{});
             std.process.exit(1);
         }
         config.path = .{ .allocated = path };
-        std.debug.print("try to get path from env\n", .{});
+        std.log.debug("try to get path from env", .{});
     }
     if (res.args.remote != 0) {
         config.action = .remote;
@@ -89,17 +133,17 @@ pub fn main() !void {
     try grab.setLocation(config);
 
     for (res.positionals[0]) |repo| {
-        std.debug.print("working on repo: {s}\n", .{repo});
+        std.log.info("working on repo: {s}", .{repo});
 
         const project = grab.Project.init(repo) catch |err| switch (err) {
             error.parse => {
-                std.debug.print("unable to parse: {s}\n", .{repo});
+                std.log.err("unable to parse: {s}", .{repo});
                 std.process.exit(1);
             },
             else => return err,
         };
 
-        std.debug.print("Project Data:\n\tSite: {s}\n\tOwner: {s}\n\tName: {s}\n\tClone: {s}\n", .{ project.site, project.owner, project.name, project.clone });
+        std.log.debug("Project Data:\n\tSite: {s}\n\tOwner: {s}\n\tName: {s}\n\tClone: {s}", .{ project.site, project.owner, project.name, project.clone });
 
         switch (config.action) {
             .standard => try clone(allocator, project),
@@ -107,6 +151,7 @@ pub fn main() !void {
             .remote => try addRemote(allocator, project),
         }
     }
+    std.log.info("Finished", .{});
 }
 
 fn clone(allocator: std.mem.Allocator, project: grab.Project) !void {
@@ -116,11 +161,11 @@ fn clone(allocator: std.mem.Allocator, project: grab.Project) !void {
     project_.root = path;
     grab.clone(allocator, project_, .{ .bare = false }) catch |err| switch (err) {
         error.exists => {
-            std.debug.print("Unable to clone: {s}, path not empty\n", .{project_.name});
+            std.log.err("Unable to clone: {s}, path not empty", .{project_.name});
             std.process.exit(1);
         },
         else => {
-            std.debug.print("unhandled error: {any}\n", .{err});
+            std.log.err("unhandled error: {any}", .{err});
             std.process.exit(1);
         },
     };
@@ -135,32 +180,32 @@ fn addRemote(allocator: std.mem.Allocator, project: grab.Project) !void {
         paths.deinit(allocator);
     }
     try grab.findPaths(allocator, &paths, project.name);
-    std.debug.print("Remote \"{s}\" is being added to the following projects:\n", .{project.owner});
+    std.log.info("Remote \"{s}\" is being added to the following projects:", .{project.owner});
     for (paths.items) |path| {
-        std.debug.print("\t{s}\n", .{path});
+        std.log.info("\t{s}", .{path});
     }
     for (paths.items) |path| {
         grab.addRemote(allocator, project, path) catch |err| switch (err) {
-            error.RemoteExists => std.debug.print("Skipping adding remote to {s}, as remote already exists\n", .{path}),
+            error.RemoteExists => std.log.warn("Skipping adding remote to {s}, as remote already exists", .{path}),
             else => return err,
         };
     }
-    std.debug.print("Success\n", .{});
+    std.log.info("successfully added remotes", .{});
 }
 
 fn worktree(allocator: std.mem.Allocator, project: grab.Project) !void {
-    std.debug.print("Config worktree deployment\n", .{});
+    std.log.debug("Config worktree deployment", .{});
     var project_ = project;
     const cwd = std.fs.cwd();
     const path = try grab.createPath(cwd, &[_][]const u8{ project_.site, project_.owner, project_.name });
     project_.root = path;
     grab.clone(allocator, project_, .{ .bare = true }) catch |err| switch (err) {
         error.exists => {
-            std.debug.print("Unable to clone: {s}, path not empty\n", .{project_.name});
+            std.log.err("Unable to clone: {s}, path not empty", .{project_.name});
             std.process.exit(1);
         },
         else => {
-            std.debug.print("unhandled error: {any}\n", .{err});
+            std.log.err("unhandled error: {any}", .{err});
             std.process.exit(1);
         },
     };
