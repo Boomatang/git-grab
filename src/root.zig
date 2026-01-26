@@ -73,7 +73,7 @@ pub const Configuration = struct {
 };
 
 pub fn clone(allocator: std.mem.Allocator, project: Project, opts: CloneOptions) !void {
-    std.debug.print("cloning: {s}\n", .{project.name});
+    std.log.debug("cloning: {s}", .{project.name});
 
     const cmd = if (opts.bare)
         &[_][]const u8{ "git", "clone", "--bare", project.clone, ".bare" }
@@ -85,7 +85,7 @@ pub fn clone(allocator: std.mem.Allocator, project: Project, opts: CloneOptions)
         .cwd_dir = project.root,
         .max_output_bytes = 1024 * 1024, // 1MB max output
     }) catch |err| {
-        std.debug.print("Failed to run git clone: {}\n", .{err});
+        std.log.err("Failed to run git clone: {}", .{err});
         return err;
     };
     defer allocator.free(result.stdout);
@@ -94,7 +94,7 @@ pub fn clone(allocator: std.mem.Allocator, project: Project, opts: CloneOptions)
         if (std.mem.endsWith(u8, result.stderr, "already exists and is not an empty directory.\n")) {
             return error.exists;
         }
-        std.debug.print("error: {s}", .{result.stderr});
+        std.log.err("{s}", .{result.stderr});
         return error.unknown;
     }
 }
@@ -109,7 +109,7 @@ pub fn createPath(cwd: std.fs.Dir, paths: []const []const u8) !std.fs.Dir {
 }
 
 fn _createPath(cwd: std.fs.Dir, path: []const u8) !std.fs.Dir {
-    std.debug.print("path: {s}\n", .{path});
+    std.log.debug("path: {s}", .{path});
 
     cwd.makeDir(path) catch |err| switch (err) {
         error.PathAlreadyExists => {},
@@ -120,10 +120,10 @@ fn _createPath(cwd: std.fs.Dir, path: []const u8) !std.fs.Dir {
 
 pub fn setLocation(config: Configuration) !void {
     if (config.getPath()) |path| {
-        std.debug.print("change path to: {s}\n", .{path});
+        std.log.debug("change path to: {s}", .{path});
         try std.posix.chdir(path);
     } else {
-        std.debug.print("no path was set\n", .{});
+        std.log.warn("no path was set", .{});
     }
 }
 
@@ -169,7 +169,7 @@ pub fn addRemote(allocator: std.mem.Allocator, project: Project, path: []const u
         .argv = &checkCmd,
         .cwd = path,
     }) catch |err| {
-        std.debug.print("Failed to run git remote: {}\n", .{err});
+        std.log.err("Failed to run git remote: {}", .{err});
         return err;
     };
     defer {
@@ -192,7 +192,7 @@ pub fn addRemote(allocator: std.mem.Allocator, project: Project, path: []const u
         .argv = &addCmd,
         .cwd = path,
     }) catch |err| {
-        std.debug.print("Failed to run git remote: {}\n", .{err});
+        std.log.err("Failed to run git remote: {}", .{err});
         return err;
     };
     defer {
@@ -202,8 +202,14 @@ pub fn addRemote(allocator: std.mem.Allocator, project: Project, path: []const u
 }
 
 pub fn linkGit(path: std.fs.Dir) !void {
-    std.debug.print("Creating .git file\n", .{});
-    const file = try path.createFile(".git", .{ .exclusive = true });
+    std.log.debug("Creating .git file", .{});
+    const file = path.createFile(".git", .{ .exclusive = true }) catch |err| switch (err) {
+        error.PathAlreadyExists => {
+            std.log.err(".git file in path already", .{});
+            std.process.exit(1);
+        },
+        else => return err,
+    };
     defer file.close();
     try file.writeAll("gitdir: .bare");
 }
@@ -220,7 +226,7 @@ pub fn setupOrigin(allocator: std.mem.Allocator, path: std.fs.Dir) !void {
         .argv = &cmd,
         .cwd_dir = path,
     }) catch |err| {
-        std.debug.print("Failed to run git config: {}\n", .{err});
+        std.log.err("Failed to run git config: {}", .{err});
         return err;
     };
     defer {
@@ -236,7 +242,7 @@ pub fn fetchOrigin(allocator: std.mem.Allocator, path: std.fs.Dir) !void {
         .argv = &cmd,
         .cwd_dir = path,
     }) catch |err| {
-        std.debug.print("Failed to run git fetch: {}\n", .{err});
+        std.log.err("Failed to run git fetch: {}", .{err});
         return err;
     };
     defer {
