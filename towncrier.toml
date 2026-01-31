@@ -1,6 +1,5 @@
 [tool.towncrier]
 name = "git-grab"
-version = "0.8.0"
 
 filename = "CHANGELOG.md"
-directory = "changelog"
+directory = "changelog.d"
