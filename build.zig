@@ -165,6 +165,25 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
 
+    const changelog_cmd = b.addSystemCommand(&.{
+        "towncrier",
+        "build",
+        "--draft",
+        "--version",
+        version,
+    });
+    const changelog_step = b.step("changelog_draft", "Build changelog draft");
+    changelog_step.dependOn(&changelog_cmd.step);
+
+    const changelog_release_cmd = b.addSystemCommand(&.{
+        "towncrier",
+        "build",
+        "--version",
+        version,
+    });
+    const changelog_release_step = b.step("changelog_release", "Build changelog release");
+    changelog_release_step.dependOn(&changelog_release_cmd.step);
+
     // Just like flags, top level steps are also listed in the `--help` menu.
     //
     // The Zig build system is entirely implemented in userland, which means
@@ -188,4 +207,8 @@ fn parseVersionFromZon(zon: []const u8) []const u8 {
     }
 
     return "unknown";
+}
+
+fn changelogDraft() void {
+    std.debug.print("works", .{});
 }
