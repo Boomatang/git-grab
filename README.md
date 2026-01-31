@@ -103,3 +103,18 @@ This can be created by and news fragments to the `changes` directory.
 These files are should have the following naming schema `<issue id>.<feature|bugfix|dic|removal|misc>`.
 Using `towncrier create -c "change message" <file name>` will also create the file for you in the correct location.
 
+### Release workflow
+1. Ensure the version in `build.zig.zon` is correct for this release.
+2. Generate the changelog for the release (review it before proceeding):
+```
+zig build changelog_release
+```
+3. Review the contents of `CHANGELOG.md` for the release version.
+4. Commit changes
+5. Build release artifacts:
+```
+zig build release
+```
+6. Create a GitHub release for the current commit with the release version as the tag.
+   - Release notes should be the changelog entry for that version.
+   - Attach all artifacts from `dist/` to the GitHub release.
