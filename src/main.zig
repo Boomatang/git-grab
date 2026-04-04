@@ -1,7 +1,7 @@
 const std = @import("std");
 const clap = @import("clap");
 const grab = @import("grab");
-const help = @import("help");
+const help = @import("help.zig");
 
 pub const Level = enum { info, debug, @"error", warn };
 pub const std_options: std.Options = .{
@@ -69,7 +69,7 @@ pub fn main() !void {
         return clap.helpToFile(.stderr(), clap.Help, &params, .{});
     if (res.args.version != 0) {
         const build_options = @import("build_options");
-        std.log.info("grab: {s}", .{build_options.version});
+        std.log.info("{s}: {s}", .{ build_options.name, build_options.version });
         std.process.exit(0);
     }
 

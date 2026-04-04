@@ -24,10 +24,12 @@ pub fn build(b: *std.Build) void {
     // My version stuff
     const options = b.addOptions();
 
-    const zon_content = std.fs.cwd().readFileAlloc(b.allocator, "build.zig.zon", 1024 * 1024) catch @panic("Failed to read build.zig.zon");
-    defer b.allocator.free(zon_content);
+    // Read version and name form build.zig.zon
+    const zon = @import("build.zig.zon");
+    const name_str = @tagName(zon.name);
+    const version = zon.version;
 
-    const version = parseVersionFromZon(zon_content);
+    options.addOption([]const u8, "name", name_str);
     options.addOption([]const u8, "version", version);
 
     // This creates a module, which represents a collection of source files alongside
@@ -53,11 +55,6 @@ pub fn build(b: *std.Build) void {
     const clap = b.dependency("clap", .{
         .target = target,
         .optimize = optimize,
-    });
-
-    const modHelp = b.addModule("help", .{
-        .root_source_file = b.path("src/help.zig"),
-        .target = target,
     });
 
     // Here we define an executable. An executable needs to have a root module
@@ -98,7 +95,6 @@ pub fn build(b: *std.Build) void {
                 // can be extremely useful in case of collisions (which can happen
                 // importing modules from different packages).
                 .{ .name = "grab", .module = mod },
-                .{ .name = "help", .module = modHelp },
             },
         }),
     });
@@ -206,7 +202,6 @@ pub fn build(b: *std.Build) void {
             resolved_target,
             optimize,
             mod,
-            modHelp,
             clap,
             options,
         );
@@ -323,7 +318,6 @@ fn addReleaseExecutable(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     mod: *std.Build.Module,
-    modHelp: *std.Build.Module,
     clap: *std.Build.Dependency,
     options: *std.Build.Step.Options,
 ) *std.Build.Step.Compile {
@@ -337,7 +331,6 @@ fn addReleaseExecutable(
             .optimize = release_optimize,
             .imports = &.{
                 .{ .name = "grab", .module = mod },
-                .{ .name = "help", .module = modHelp },
             },
         }),
     });
