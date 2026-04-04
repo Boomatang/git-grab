@@ -8,20 +8,33 @@ pub const Project = struct {
     root: ?std.fs.Dir = null,
 
     pub fn init(repo: []const u8) !Project {
-        if (!std.mem.startsWith(u8, repo, "git") or !std.mem.endsWith(u8, repo, "git")) {
+        if (!std.mem.endsWith(u8, repo, ".git")) {
             return error.parse;
         }
+        var split_on = ":";
+        var min: usize = undefined;
+        var max: usize = undefined;
+        if (std.mem.startsWith(u8, repo, "git")) {
+            std.log.debug("possible GitHub repo", .{});
+            split_on = ":";
+        } else if (std.mem.startsWith(u8, repo, "ssh://git")) {
+            std.log.debug("possible Codeberg repo", .{});
+            split_on = "/";
+        } else {
+            return error.parse;
+        }
+
         const _clone = repo;
 
-        var min = std.mem.indexOf(u8, repo, "@") orelse return error.parse;
-        var max = std.mem.indexOf(u8, repo, ":") orelse return error.parse;
+        min = std.mem.indexOf(u8, repo, "@") orelse return error.parse;
+        max = std.mem.indexOfPos(u8, repo, min, split_on) orelse return error.parse;
         const _site = repo[min + 1 .. max];
 
-        min = std.mem.indexOf(u8, repo, ":") orelse return error.parse;
-        max = std.mem.indexOf(u8, repo, "/") orelse return error.parse;
+        min = max;
+        max = std.mem.indexOfPos(u8, repo, min + 1, "/") orelse return error.parse;
         const _owner = repo[min + 1 .. max];
 
-        min = std.mem.indexOf(u8, repo, "/") orelse return error.parse;
+        min = max;
         max = std.mem.indexOf(u8, repo, ".git") orelse return error.parse;
         const _name = repo[min + 1 .. max];
 
@@ -249,4 +262,44 @@ pub fn fetchOrigin(allocator: std.mem.Allocator, path: std.fs.Dir) !void {
         allocator.free(result.stdout);
         allocator.free(result.stderr);
     }
+}
+
+test "input parsing GitHub" {
+    const input = "git@github.com:Boomatang/git-grab.git";
+    const expect = Project{
+        .clone = input,
+        .name = "git-grab",
+        .owner = "Boomatang",
+        .site = "github.com",
+    };
+
+    const project = try Project.init(input);
+
+    try std.testing.expectEqualStrings(expect.site, project.site);
+    try std.testing.expectEqualStrings(expect.owner, project.owner);
+    try std.testing.expectEqualStrings(expect.name, project.name);
+    try std.testing.expectEqualStrings(expect.clone, project.clone);
+}
+
+test "input parsing codeberg" {
+    const input = "ssh://git@codeberg.org/boomatang/boomatang.git";
+    const expect = Project{
+        .clone = input,
+        .name = "boomatang",
+        .owner = "boomatang",
+        .site = "codeberg.org",
+    };
+
+    const project = try Project.init(input);
+
+    try std.testing.expectEqualStrings(expect.site, project.site);
+    try std.testing.expectEqualStrings(expect.owner, project.owner);
+    try std.testing.expectEqualStrings(expect.name, project.name);
+    try std.testing.expectEqualStrings(expect.clone, project.clone);
+}
+
+test "input parsing Bad Input" {
+    const input = "@codeberg.org/boomatang/boomatang.git";
+
+    try std.testing.expectError(error.parse, Project.init(input));
 }
