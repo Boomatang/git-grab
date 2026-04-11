@@ -11,5 +11,13 @@ repos:
   - id: check-yaml
   - id: no-commit-to-branch
     args:
-      - --branch=master
+      - --branch=main
   - id: debug-statements
+- repo: local
+  hooks:
+  - id: zig-build-test
+    name: Zig build test
+    entry: zig build test
+    language: system
+    pass_filenames: false
+
