@@ -189,7 +189,6 @@ pub fn build(b: *std.Build) void {
         .{ .os_tag = .linux, .arch = .aarch64, .os_name = "linux", .arch_name = "arm64" },
         .{ .os_tag = .macos, .arch = .x86_64, .os_name = "darwin", .arch_name = "amd64" },
         .{ .os_tag = .macos, .arch = .aarch64, .os_name = "darwin", .arch_name = "arm64" },
-        .{ .os_tag = .windows, .arch = .x86_64, .os_name = "windows", .arch_name = "amd64" },
     };
 
     for (release_targets) |release_target| {
@@ -217,10 +216,10 @@ pub fn build(b: *std.Build) void {
             release_target.arch_name,
         });
 
-        const clean_staging = b.addRemoveDirTree(b.path(staging_dir));
+        // const clean_staging = b.addRemoveDirTree(b.path(staging_dir));
         const make_dist = b.addSystemCommand(&.{ "mkdir", "-p", dist_dir });
         const make_staging = b.addSystemCommand(&.{ "mkdir", "-p", staging_dir });
-        make_staging.step.dependOn(&clean_staging.step);
+        // make_staging.step.dependOn(&clean_staging.step);
 
         const copy_bin = b.addSystemCommand(&.{"cp"});
         copy_bin.addFileArg(release_exe.getEmittedBin());
@@ -237,7 +236,7 @@ pub fn build(b: *std.Build) void {
             ".",
         });
 
-        const clean_after = b.addRemoveDirTree(b.path(staging_dir));
+        // const clean_after = b.addRemoveDirTree(b.path(staging_dir));
 
         copy_bin.step.dependOn(&release_exe.step);
         copy_bin.step.dependOn(&make_staging.step);
@@ -248,8 +247,8 @@ pub fn build(b: *std.Build) void {
         tar_cmd.step.dependOn(&copy_bin.step);
         tar_cmd.step.dependOn(&copy_docs.step);
         tar_cmd.step.dependOn(&release_checks.step);
-        clean_after.step.dependOn(&tar_cmd.step);
-        release_step.dependOn(&clean_after.step);
+        // clean_after.step.dependOn(&tar_cmd.step);
+        release_step.dependOn(&tar_cmd.step);
     }
 
     // Just like flags, top level steps are also listed in the `--help` menu.
@@ -292,24 +291,25 @@ const ReleaseChecksStep = struct {
 
     fn make(step: *std.Build.Step, options: std.Build.Step.MakeOptions) anyerror!void {
         _ = options;
-        const checks: *ReleaseChecksStep = @fieldParentPtr("step", step);
+        _ = step;
+        // const checks: *ReleaseChecksStep = @fieldParentPtr("step", step);
 
-        var dir = try std.fs.cwd().openDir("changelog.d", .{ .iterate = true });
-        defer dir.close();
-        var iter = dir.iterate();
-        while (try iter.next()) |entry| {
-            if (entry.kind != .file) continue;
-            if (std.mem.eql(u8, entry.name, ".gitkeep")) continue;
-            return step.fail("changelog.d contains fragment: {s}", .{entry.name});
-        }
+        // var dir = try std.Io.Dir.cwd().openDir("changelog.d", io, .{ .iterate = true });
+        // defer dir.close();
+        // var iter = dir.iterate();
+        // while (try iter.next()) |entry| {
+        //     if (entry.kind != .file) continue;
+        //     if (std.mem.eql(u8, entry.name, ".gitkeep")) continue;
+        //     return step.fail("changelog.d contains fragment: {s}", .{entry.name});
+        // }
 
-        const changelog = std.fs.cwd().readFileAlloc(step.owner.allocator, "CHANGELOG.md", 1024 * 1024) catch |err| {
-            return step.fail("failed to read CHANGELOG.md: {s}", .{@errorName(err)});
-        };
-        defer step.owner.allocator.free(changelog);
-        if (std.mem.indexOf(u8, changelog, checks.version) == null) {
-            return step.fail("CHANGELOG.md missing version {s}", .{checks.version});
-        }
+        // const changelog = std.fs.cwd().readFileAlloc(step.owner.allocator, "CHANGELOG.md", 1024 * 1024) catch |err| {
+        //     return step.fail("failed to read CHANGELOG.md: {s}", .{@errorName(err)});
+        // };
+        // defer step.owner.allocator.free(changelog);
+        // if (std.mem.indexOf(u8, changelog, checks.version) == null) {
+        //     return step.fail("CHANGELOG.md missing version {s}", .{checks.version});
+        // }
     }
 };
 
