@@ -20,4 +20,8 @@ repos:
     entry: zig build test
     language: system
     pass_filenames: false
-
+  - id: zig-fmt
+    name: Zig fmt
+    entry: zig fmt .
+    language: system
+    pass_filenames: false

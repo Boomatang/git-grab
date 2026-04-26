@@ -5,7 +5,7 @@ pub const Project = struct {
     owner: []const u8,
     name: []const u8,
     clone: []const u8,
-    root: ?std.fs.Dir = null,
+    root: ?std.Io.Dir = null,
 
     pub fn init(repo: []const u8) !Project {
         if (!std.mem.endsWith(u8, repo, ".git")) {
@@ -67,12 +67,8 @@ pub const Configuration = struct {
     }
 
     pub fn deinit(self: *Configuration, allocator: std.mem.Allocator) void {
-        if (self.path) |path| {
-            switch (path) {
-                .allocated => |p| allocator.free(p),
-                .provided, .none => {},
-            }
-        }
+        _ = self;
+        _ = allocator;
     }
 
     pub fn getPath(self: *const Configuration) ?[]const u8 {
@@ -85,18 +81,17 @@ pub const Configuration = struct {
     }
 };
 
-pub fn clone(allocator: std.mem.Allocator, project: Project, opts: CloneOptions) !void {
+pub fn clone(allocator: std.mem.Allocator, io: std.Io, project: Project, opts: CloneOptions) !void {
     std.log.debug("cloning: {s}", .{project.name});
 
+    const path = if (project.root) |root| try root.realPathFileAlloc(io, ".", allocator) else return error.noroot;
+    defer allocator.free(path);
     const cmd = if (opts.bare)
-        &[_][]const u8{ "git", "clone", "--bare", project.clone, ".bare" }
+        &[_][]const u8{ "git", "-C", path, "clone", "--bare", project.clone, ".bare" }
     else
-        &[_][]const u8{ "git", "clone", project.clone };
-    const result = std.process.Child.run(.{
-        .allocator = allocator,
+        &[_][]const u8{ "git", "-C", path, "clone", project.clone };
+    const result = std.process.run(allocator, io, .{
         .argv = cmd,
-        .cwd_dir = project.root,
-        .max_output_bytes = 1024 * 1024, // 1MB max output
     }) catch |err| {
         std.log.err("Failed to run git clone: {}", .{err});
         return err;
@@ -112,59 +107,60 @@ pub fn clone(allocator: std.mem.Allocator, project: Project, opts: CloneOptions)
     }
 }
 
-pub fn createPath(cwd: std.fs.Dir, paths: []const []const u8) !std.fs.Dir {
+pub fn createPath(io: std.Io, cwd: std.Io.Dir, paths: []const []const u8) !std.Io.Dir {
     var current = cwd;
 
     for (paths) |path| {
-        current = try _createPath(current, path);
+        current = try _createPath(io, current, path);
     }
     return current;
 }
 
-fn _createPath(cwd: std.fs.Dir, path: []const u8) !std.fs.Dir {
+fn _createPath(io: std.Io, cwd: std.Io.Dir, path: []const u8) !std.Io.Dir {
     std.log.debug("path: {s}", .{path});
 
-    cwd.makeDir(path) catch |err| switch (err) {
+    cwd.createDir(io, path, .default_dir) catch |err| switch (err) {
         error.PathAlreadyExists => {},
         else => return err,
     };
-    return try cwd.openDir(path, .{});
+    return try cwd.openDir(io, path, .{});
 }
 
-pub fn setLocation(config: Configuration) !void {
+pub fn setLocation(io: std.Io, config: Configuration) !void {
     if (config.getPath()) |path| {
         std.log.debug("change path to: {s}", .{path});
-        try std.posix.chdir(path);
+        const dir = try std.Io.Dir.cwd().openDir(io, path, .{});
+        try std.process.setCurrentDir(io, dir);
     } else {
         std.log.warn("no path was set", .{});
     }
 }
 
-pub fn findPaths(allocator: std.mem.Allocator, paths: *std.ArrayList([]const u8), projectName: []const u8) !void {
-    const cwd = try std.fs.cwd().openDir(".", .{ .iterate = true });
+pub fn findPaths(allocator: std.mem.Allocator, io: std.Io, paths: *std.ArrayList([]const u8), projectName: []const u8) !void {
+    const cwd = try std.Io.Dir.cwd().openDir(io, ".", .{ .iterate = true });
     var walker = try cwd.walk(allocator);
     defer walker.deinit();
 
     while (true) {
-        const entry = walker.next() catch |err| {
+        const entry = walker.next(io) catch |err| {
             if (err == error.AccessDenied) continue;
             return err;
         } orelse break;
 
         if (entry.kind == .directory and std.mem.eql(u8, entry.basename, projectName)) {
-            if (try isGitRepo(entry.path)) try paths.append(allocator, try allocator.dupe(u8, entry.path));
+            if (try isGitRepo(io, entry.path)) try paths.append(allocator, try allocator.dupe(u8, entry.path));
         }
     }
 }
 
-fn isGitRepo(path: []const u8) !bool {
-    const temp = try std.fs.cwd().openDir(".", .{ .iterate = true });
-    const cwd = try temp.openDir(path, .{ .iterate = true });
+fn isGitRepo(io: std.Io, path: []const u8) !bool {
+    const temp = try std.Io.Dir.cwd().openDir(io, ".", .{ .iterate = true });
+    const cwd = try temp.openDir(io, path, .{ .iterate = true });
     const subPaths = [_][]const u8{ ".git", ".bare" };
 
     for (subPaths) |p| {
         var isRepo = true;
-        _ = cwd.openDir(p, .{}) catch |err| switch (err) {
+        _ = cwd.openDir(io, p, .{}) catch |err| switch (err) {
             error.NotDir => isRepo = false,
             error.FileNotFound => isRepo = false,
             else => return err,
@@ -175,12 +171,10 @@ fn isGitRepo(path: []const u8) !bool {
     return false;
 }
 
-pub fn addRemote(allocator: std.mem.Allocator, project: Project, path: []const u8) !void {
-    const checkCmd = [_][]const u8{ "git", "remote" };
-    const checkResult = std.process.Child.run(.{
-        .allocator = allocator,
+pub fn addRemote(allocator: std.mem.Allocator, io: std.Io, project: Project, path: []const u8) !void {
+    const checkCmd = [_][]const u8{ "git", "-C", path, "remote" };
+    const checkResult = std.process.run(allocator, io, .{
         .argv = &checkCmd,
-        .cwd = path,
     }) catch |err| {
         std.log.err("Failed to run git remote: {}", .{err});
         return err;
@@ -199,11 +193,9 @@ pub fn addRemote(allocator: std.mem.Allocator, project: Project, path: []const u
         value = output.next() orelse break;
     }
 
-    const addCmd = [_][]const u8{ "git", "remote", "add", project.owner, project.clone };
-    const addResult = std.process.Child.run(.{
-        .allocator = allocator,
+    const addCmd = [_][]const u8{ "git", "-C", path, "remote", "add", project.owner, project.clone };
+    const addResult = std.process.run(allocator, io, .{
         .argv = &addCmd,
-        .cwd = path,
     }) catch |err| {
         std.log.err("Failed to run git remote: {}", .{err});
         return err;
@@ -214,32 +206,34 @@ pub fn addRemote(allocator: std.mem.Allocator, project: Project, path: []const u
     }
 }
 
-pub fn linkGit(path: std.fs.Dir) !void {
+pub fn linkGit(io: std.Io, path: std.Io.Dir) !void {
     std.log.debug("Creating .git file", .{});
-    const file = path.createFile(".git", .{ .exclusive = true }) catch |err| switch (err) {
+    const file = path.createFile(io, ".git", .{ .exclusive = true }) catch |err| switch (err) {
         error.PathAlreadyExists => {
             std.log.err(".git file in path already", .{});
             std.process.exit(1);
         },
         else => return err,
     };
-    defer file.close();
-    try file.writeAll("gitdir: .bare");
+    defer file.close(io);
+    try file.writeStreamingAll(io, "gitdir: .bare");
 }
 
-pub fn setupOrigin(allocator: std.mem.Allocator, path: std.fs.Dir) !void {
+pub fn setupOrigin(allocator: std.mem.Allocator, io: std.Io, path: std.Io.Dir) !void {
+    const _path = try path.realPathFileAlloc(io, ".", allocator);
+    allocator.free(_path);
     const cmd = [_][]const u8{
         "git",
+        "-C",
+        _path,
         "config",
         "remote.origin.fetch",
         "+refs/heads/*:refs/remotes/origin/*",
     };
-    const result = std.process.Child.run(.{
-        .allocator = allocator,
+    const result = std.process.run(allocator, io, .{
         .argv = &cmd,
-        .cwd_dir = path,
     }) catch |err| {
-        std.log.err("Failed to run git config: {}", .{err});
+        std.log.err("Failed toe run git config: {}", .{err});
         return err;
     };
     defer {
@@ -248,12 +242,12 @@ pub fn setupOrigin(allocator: std.mem.Allocator, path: std.fs.Dir) !void {
     }
 }
 
-pub fn fetchOrigin(allocator: std.mem.Allocator, path: std.fs.Dir) !void {
-    const cmd = [_][]const u8{ "git", "fetch", "-p", "origin" };
-    const result = std.process.Child.run(.{
-        .allocator = allocator,
+pub fn fetchOrigin(allocator: std.mem.Allocator, io: std.Io, path: std.Io.Dir) !void {
+    const _path = try path.realPathFileAlloc(io, ".", allocator);
+    allocator.free(_path);
+    const cmd = [_][]const u8{ "git", "-C", _path, "fetch", "-p", "origin" };
+    const result = std.process.run(allocator, io, .{
         .argv = &cmd,
-        .cwd_dir = path,
     }) catch |err| {
         std.log.err("Failed to run git fetch: {}", .{err});
         return err;
