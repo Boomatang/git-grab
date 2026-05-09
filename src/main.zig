@@ -115,7 +115,7 @@ pub fn main(init: std.process.Init) !void {
             std.log.err("unable to get GRAB_PATH, please set or use --temp or --path", .{});
             std.process.exit(1);
         }
-        config.path = .{ .allocated = path };
+        config.path = .{ .provided = path };
         std.log.debug("try to get path from env", .{});
     }
     if (res.args.remote != 0) {

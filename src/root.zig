@@ -67,8 +67,12 @@ pub const Configuration = struct {
     }
 
     pub fn deinit(self: *Configuration, allocator: std.mem.Allocator) void {
-        _ = self;
-        _ = allocator;
+        if (self.path) |path| {
+            switch (path) {
+                .allocated => |p| allocator.free(p),
+                .provided, .none => {},
+            }
+        }
     }
 
     pub fn getPath(self: *const Configuration) ?[]const u8 {
