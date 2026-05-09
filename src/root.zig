@@ -50,6 +50,7 @@ pub const Action = enum {
 
 pub const CloneOptions = struct {
     bare: bool,
+    shallow: bool = false,
 };
 
 pub const PathSource = union(enum) {
@@ -61,6 +62,7 @@ pub const PathSource = union(enum) {
 pub const Configuration = struct {
     path: ?PathSource = .none,
     action: Action = .worktree,
+    shallow: bool = false,
 
     pub fn init() Configuration {
         return Configuration{};
@@ -90,16 +92,26 @@ pub fn clone(allocator: std.mem.Allocator, io: std.Io, project: Project, opts: C
 
     const path = if (project.root) |root| try root.realPathFileAlloc(io, ".", allocator) else return error.noroot;
     defer allocator.free(path);
-    const cmd = if (opts.bare)
-        &[_][]const u8{ "git", "-C", path, "clone", "--bare", project.clone, ".bare" }
-    else
-        &[_][]const u8{ "git", "-C", path, "clone", project.clone };
+
+    var cmd: std.ArrayList([]const u8) = .empty;
+    defer cmd.deinit(allocator);
+    try cmd.appendSlice(allocator, &[_][]const u8{ "git", "-C", path, "clone" });
+
+    if (opts.shallow) try cmd.append(allocator, "--depth=1");
+
+    if (opts.bare) {
+        try cmd.appendSlice(allocator, &[_][]const u8{ "--bare", project.clone, ".bare" });
+    } else {
+        try cmd.append(allocator, project.clone);
+    }
+
     const result = std.process.run(allocator, io, .{
-        .argv = cmd,
+        .argv = cmd.items,
     }) catch |err| {
         std.log.err("Failed to run git clone: {}", .{err});
         return err;
     };
+
     defer allocator.free(result.stdout);
     defer allocator.free(result.stderr);
     if (std.mem.startsWith(u8, result.stderr, "fatal")) {

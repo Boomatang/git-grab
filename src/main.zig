@@ -38,6 +38,7 @@ pub fn main(init: std.process.Init) !void {
         \\-p, --path <PATH>  Overrides the path set in the GRAB_PATH environment variable.
         \\-t, --temp       Download repositories to a temporary directory. This will be the OS default temporary directory.
         \\-s, --standard Standard clone, normal clone is done using worktrees.
+        \\-S, --shallow Create a shallow clone with a history of depth one
         \\-r, --remote     Add remote to existing repo.
         \\--log-level <LEVEL> Set the log level. All logs are saved to file. Possible values are (debug, info, warn, error). Defualt level is info.
         \\--version        Show program's version number and exit
@@ -126,6 +127,10 @@ pub fn main(init: std.process.Init) !void {
         config.action = .standard;
     }
 
+    if (res.args.shallow != 0) {
+        config.shallow = true;
+    }
+
     try grab.setLocation(init.io, config);
 
     for (res.positionals[0]) |repo| {
@@ -141,20 +146,22 @@ pub fn main(init: std.process.Init) !void {
         std.log.debug("Project Data:\n\tSite: {s}\n\tOwner: {s}\n\tName: {s}\n\tClone: {s}", .{ project.site, project.owner, project.name, project.clone });
 
         switch (config.action) {
-            .standard => try clone(init.io, allocator, project),
-            .worktree => try worktree(allocator, init.io, project),
+            .standard => try clone(init.io, allocator, project, .{ .shallow = config.shallow }),
+            .worktree => try worktree(allocator, init.io, project, .{ .shallow = config.shallow }),
             .remote => try addRemote(allocator, init.io, project),
         }
     }
     std.log.info("Finished", .{});
 }
 
-fn clone(io: std.Io, allocator: std.mem.Allocator, project: grab.Project) !void {
+const gitOpts = struct { shallow: bool = false };
+
+fn clone(io: std.Io, allocator: std.mem.Allocator, project: grab.Project, opts: gitOpts) !void {
     var project_ = project;
     const cwd = std.Io.Dir.cwd();
     const path = try grab.createPath(io, cwd, &[_][]const u8{ project_.site, project_.owner });
     project_.root = path;
-    grab.clone(allocator, io, project_, .{ .bare = false }) catch |err| switch (err) {
+    grab.clone(allocator, io, project_, .{ .bare = false, .shallow = opts.shallow }) catch |err| switch (err) {
         error.exists => {
             std.log.err("Unable to clone: {s}, path not empty", .{project_.name});
             std.process.exit(1);
@@ -188,13 +195,13 @@ fn addRemote(allocator: std.mem.Allocator, io: std.Io, project: grab.Project) !v
     std.log.info("successfully added remotes", .{});
 }
 
-fn worktree(allocator: std.mem.Allocator, io: std.Io, project: grab.Project) !void {
+fn worktree(allocator: std.mem.Allocator, io: std.Io, project: grab.Project, opts: gitOpts) !void {
     std.log.debug("Config worktree deployment", .{});
     var project_ = project;
     const cwd = std.Io.Dir.cwd();
     const path = try grab.createPath(io, cwd, &[_][]const u8{ project_.site, project_.owner, project_.name });
     project_.root = path;
-    grab.clone(allocator, io, project_, .{ .bare = true }) catch |err| switch (err) {
+    grab.clone(allocator, io, project_, .{ .bare = true, .shallow = opts.shallow }) catch |err| switch (err) {
         error.exists => {
             std.log.err("Unable to clone: {s}, path not empty", .{project_.name});
             std.process.exit(1);
