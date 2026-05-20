@@ -133,25 +133,34 @@ pub fn main(init: std.process.Init) !void {
 
     try grab.setLocation(init.io, config);
 
+    var run_failure = false;
     for (res.positionals[0]) |repo| {
         std.log.info("working on repo: {s}", .{repo});
 
         const project = grab.Project.init(repo) catch |err| switch (err) {
             error.parse => {
                 std.log.err("unable to parse: {s}", .{repo});
-                std.process.exit(1);
+                run_failure = true;
+                continue;
             },
         };
 
         std.log.debug("Project Data:\n\tSite: {s}\n\tOwner: {s}\n\tName: {s}\n\tClone: {s}", .{ project.site, project.owner, project.name, project.clone });
 
         switch (config.action) {
-            .standard => try clone(init.io, allocator, project, .{ .shallow = config.shallow }),
-            .worktree => try worktree(allocator, init.io, project, .{ .shallow = config.shallow }),
-            .remote => try addRemote(allocator, init.io, project),
+            .standard => clone(init.io, allocator, project, .{ .shallow = config.shallow }) catch {
+                run_failure = true;
+            },
+            .worktree => worktree(allocator, init.io, project, .{ .shallow = config.shallow }) catch {
+                run_failure = true;
+            },
+            .remote => addRemote(allocator, init.io, project) catch {
+                run_failure = true;
+            },
         }
     }
     std.log.info("Finished", .{});
+    if (run_failure) std.process.exit(1);
 }
 
 const gitOpts = struct { shallow: bool = false };
@@ -159,16 +168,19 @@ const gitOpts = struct { shallow: bool = false };
 fn clone(io: std.Io, allocator: std.mem.Allocator, project: grab.Project, opts: gitOpts) !void {
     var project_ = project;
     const cwd = std.Io.Dir.cwd();
-    const path = try grab.createPath(io, cwd, &[_][]const u8{ project_.site, project_.owner });
+    const path = grab.createPath(io, cwd, &[_][]const u8{ project_.site, project_.owner }) catch |err| {
+        std.log.err("unhandled error: {any}", .{err});
+        return err;
+    };
     project_.root = path;
     grab.clone(allocator, io, project_, .{ .bare = false, .shallow = opts.shallow }) catch |err| switch (err) {
         error.exists => {
             std.log.err("Unable to clone: {s}, path not empty", .{project_.name});
-            std.process.exit(1);
+            return error.clone;
         },
         else => {
             std.log.err("unhandled error: {any}", .{err});
-            std.process.exit(1);
+            return err;
         },
     };
 }
@@ -181,7 +193,10 @@ fn addRemote(allocator: std.mem.Allocator, io: std.Io, project: grab.Project) !v
         }
         paths.deinit(allocator);
     }
-    try grab.findPaths(allocator, io, &paths, project.name);
+    grab.findPaths(allocator, io, &paths, project.name) catch |err| {
+        std.log.err("unhandled error: {any}", .{err});
+        return err;
+    };
     std.log.info("Remote \"{s}\" is being added to the following projects:", .{project.owner});
     for (paths.items) |path| {
         std.log.info("\t{s}", .{path});
@@ -199,22 +214,34 @@ fn worktree(allocator: std.mem.Allocator, io: std.Io, project: grab.Project, opt
     std.log.debug("Config worktree deployment", .{});
     var project_ = project;
     const cwd = std.Io.Dir.cwd();
-    const path = try grab.createPath(io, cwd, &[_][]const u8{ project_.site, project_.owner, project_.name });
+    const path = grab.createPath(io, cwd, &[_][]const u8{ project_.site, project_.owner, project_.name }) catch |err| {
+        std.log.err("unhandled error: {any}", .{err});
+        return err;
+    };
     project_.root = path;
     grab.clone(allocator, io, project_, .{ .bare = true, .shallow = opts.shallow }) catch |err| switch (err) {
         error.exists => {
             std.log.err("Unable to clone: {s}, path not empty", .{project_.name});
-            std.process.exit(1);
+            return error.clone;
         },
         else => {
             std.log.err("unhandled error: {any}", .{err});
-            std.process.exit(1);
+            return err;
         },
     };
 
     if (project_.root) |root| {
-        try grab.linkGit(io, root);
-        try grab.setupOrigin(allocator, io, root);
-        try grab.fetchOrigin(allocator, io, root);
+        grab.linkGit(io, root) catch |err| {
+            std.log.err("unhandled error: {any}", .{err});
+            return err;
+        };
+        grab.setupOrigin(allocator, io, root) catch |err| {
+            std.log.err("unhandled error: {any}", .{err});
+            return err;
+        };
+        grab.fetchOrigin(allocator, io, root) catch |err| {
+            std.log.err("unhandled error: {any}", .{err});
+            return err;
+        };
     }
 }
