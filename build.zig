@@ -1,4 +1,5 @@
 const std = @import("std");
+const zon = @import("build.zig.zon");
 
 // Although this function looks imperative, it does not perform the build
 // directly and instead it mutates the build graph (`b`) that will be then
@@ -25,7 +26,6 @@ pub fn build(b: *std.Build) void {
     const options = b.addOptions();
 
     // Read version and name form build.zig.zon
-    const zon = @import("build.zig.zon");
     const name_str = @tagName(zon.name);
     const version = zon.version;
 
@@ -161,25 +161,6 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
 
-    const changelog_cmd = b.addSystemCommand(&.{
-        "towncrier",
-        "build",
-        "--draft",
-        "--version",
-        version,
-    });
-    const changelog_step = b.step("changelog_draft", "Build changelog draft");
-    changelog_step.dependOn(&changelog_cmd.step);
-
-    const changelog_release_cmd = b.addSystemCommand(&.{
-        "towncrier",
-        "build",
-        "--version",
-        version,
-    });
-    const changelog_release_step = b.step("changelog_release", "Build changelog release");
-    changelog_release_step.dependOn(&changelog_release_cmd.step);
-
     const release_step = b.step("release", "Build release archives");
 
     const release_checks = ReleaseChecksStep.create(b, version);
@@ -262,6 +243,40 @@ pub fn build(b: *std.Build) void {
     //
     // Lastly, the Zig build system is relatively simple and self-contained,
     // and reading its source code will allow you to master it.
+
+    // Set Up Changie Commands
+    // WARNING: build() returns early here if changie deps are not fetched.
+    // Do NOT add build steps after the changie block — they will be silently hidden.
+    const changie_bin = get_changie_bin(b) orelse return;
+
+    // Changie Add
+    const changie_add = std.Build.Step.Run.create(b, "run changie");
+    changie_add.addFileArg(changie_bin);
+    changie_add.addArg("new");
+    const changie_add_cmd = b.step("changie:add", "Add change log fragment");
+    changie_add_cmd.dependOn(&changie_add.step);
+
+    // Changie batch
+    const changie_batch = std.Build.Step.Run.create(b, "run changie");
+    changie_batch.addFileArg(changie_bin);
+    changie_batch.addArg("batch");
+    changie_batch.addArg(zon.version);
+    const changie_batch_cmd = b.step("changie:batch", "Batch fragments for a release");
+    changie_batch_cmd.dependOn(&changie_batch.step);
+
+    // Changie merge
+    const changie_merge = std.Build.Step.Run.create(b, "run changie");
+    changie_merge.addFileArg(changie_bin);
+    changie_merge.addArg("merge");
+    const changie_merge_cmd = b.step("changie:merge", "Merge all changes into CHANGELOG.md");
+    changie_merge_cmd.dependOn(&changie_merge.step);
+
+    // Changie Version
+    const changie_version = std.Build.Step.Run.create(b, "run changie");
+    changie_version.addFileArg(changie_bin);
+    changie_version.addArg("--version");
+    const changie_version_cmd = b.step("changie:version", "Print the changie version");
+    changie_version_cmd.dependOn(&changie_version.step);
 }
 
 const ReleaseTarget = struct {
@@ -341,18 +356,26 @@ fn addReleaseExecutable(
     return exe;
 }
 
-fn parseVersionFromZon(zon: []const u8) []const u8 {
-    const needle = ".version = \"";
-    if (std.mem.indexOf(u8, zon, needle)) |start| {
-        const version_start = start + needle.len;
-        if (std.mem.indexOfPos(u8, zon, version_start, "\"")) |end| {
-            return zon[version_start..end];
-        }
+fn get_changie_bin(b: *std.Build) ?std.Build.LazyPath {
+    const host = b.graph.host.result;
+    const name = switch (host.os.tag) {
+        .linux => switch (host.cpu.arch) {
+            .x86_64 => "changie_linux_amd64",
+            .aarch64 => "changie_linux_arm64",
+            else => return null,
+        },
+        .macos => switch (host.cpu.arch) {
+            .x86_64 => "changie_darwin_amd64",
+            .aarch64 => "changie_darwin_arm64",
+            else => return null,
+        },
+
+        else => return null,
+    };
+
+    if (b.lazyDependency(name, .{})) |dep| {
+        return dep.path("changie");
+    } else {
+        return null;
     }
-
-    return "unknown";
-}
-
-fn changelogDraft() void {
-    std.debug.print("works", .{});
 }
