@@ -99,22 +99,29 @@ All matching is case-sensitive, which can be problematic when adding remotes.
 ### Creating the changelog
 
 On new changes a news fragment is required.
-This can be created by and news fragments to the `changes` directory.
-These files are should have the following naming schema `<issue id>.<feature|bugfix|dic|removal|misc>`.
-Using `towncrier create -c "change message" <file name>` will also create the file for you in the correct location.
+Create one interactively with:
+```
+zig build changie:add
+```
+This places a YAML fragment in `.changes/unreleased/`.
+The available change kinds are: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`.
 
 ### Release workflow
 1. Ensure the version in `build.zig.zon` is correct for this release.
-2. Generate the changelog for the release (review it before proceeding):
+2. Batch the unreleased fragments into a versioned changelog file:
 ```
-zig build changelog_release
+zig build changie:batch
 ```
-3. Review the contents of `CHANGELOG.md` for the release version.
-4. Commit changes
-5. Build release artifacts:
+3. Review the generated file in `.changes/` for the release version.
+4. Merge all versioned changelogs into `CHANGELOG.md`:
+```
+zig build changie:merge
+```
+5. Commit changes.
+6. Build release artifacts:
 ```
 zig build release
 ```
-6. Create a GitHub release for the current commit with the release version as the tag.
+7. Create a GitHub release for the current commit with the release version as the tag.
    - Release notes should be the changelog entry for that version.
    - Attach all artifacts from `dist/` to the GitHub release.

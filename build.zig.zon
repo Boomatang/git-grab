@@ -36,6 +36,26 @@
             .url = "https://github.com/Hejsil/zig-clap/archive/refs/tags/0.12.0.tar.gz",
             .hash = "clap-0.12.0-oBajB7foAQDqlSwaSG5g0yq7xGbQARUsBk5T64gAOqP5",
         },
+        .changie_linux_amd64 = .{
+            .url = "https://github.com/miniscruff/changie/releases/download/v1.24.0/changie_1.24.0_linux_amd64.tar.gz",
+            .hash = "N-V-__8AAENZjwAgVC77qCVBXAtYm4fnrTMT1RBqj1t8NhBZ",
+            .lazy = true,
+        },
+        .changie_linux_arm64 = .{
+            .url = "https://github.com/miniscruff/changie/releases/download/v1.24.0/changie_1.24.0_linux_arm64.tar.gz",
+            .hash = "N-V-__8AAENJhwD2wvDEhjJfTloiHqn-qpmoePGSFu-Vx3SJ",
+            .lazy = true,
+        },
+        .changie_darwin_amd64 = .{
+            .url = "https://github.com/miniscruff/changie/releases/download/v1.24.0/changie_1.24.0_darwin_amd64.tar.gz",
+            .hash = "N-V-__8AAGs5kgBBv5ttmT4sx1a5kaIdXaCpiezGwNPiIjQJ",
+            .lazy = true,
+        },
+        .changie_darwin_arm64 = .{
+            .url = "https://github.com/miniscruff/changie/releases/download/v1.24.0/changie_1.24.0_darwin_arm64.tar.gz",
+            .hash = "N-V-__8AAC38iQDlMJ83w1JhoVxWE-rVPQK7wL7bP_-5M0EF",
+            .lazy = true,
+        },
     },
     .paths = .{
         "build.zig",
