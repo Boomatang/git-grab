@@ -237,7 +237,7 @@ pub fn linkGit(io: std.Io, path: std.Io.Dir) !void {
 
 pub fn setupOrigin(allocator: std.mem.Allocator, io: std.Io, path: std.Io.Dir) !void {
     const _path = try path.realPathFileAlloc(io, ".", allocator);
-    allocator.free(_path);
+    defer allocator.free(_path);
     const cmd = [_][]const u8{
         "git",
         "-C",
@@ -260,7 +260,7 @@ pub fn setupOrigin(allocator: std.mem.Allocator, io: std.Io, path: std.Io.Dir) !
 
 pub fn fetchOrigin(allocator: std.mem.Allocator, io: std.Io, path: std.Io.Dir) !void {
     const _path = try path.realPathFileAlloc(io, ".", allocator);
-    allocator.free(_path);
+    defer allocator.free(_path);
     const cmd = [_][]const u8{ "git", "-C", _path, "fetch", "-p", "origin" };
     const result = std.process.run(allocator, io, .{
         .argv = &cmd,
