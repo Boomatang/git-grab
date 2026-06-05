@@ -1,3 +1,0 @@
-kind: Fixed
-body: Working path was de-allocator before use. This cause the origins not to be configured correctly. This bug was introduced during the zig 0.16.0 upgrade.
-time: 2026-06-04T20:52:35.308341822+01:00
