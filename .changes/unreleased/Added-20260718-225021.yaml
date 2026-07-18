@@ -1,0 +1,3 @@
+kind: Added
+body: Configure autoSetupMerge on branches. This is a heavy handed configuration, but hoping to solve future problems.
+time: 2026-07-18T22:50:21.658313086+01:00

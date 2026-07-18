@@ -274,6 +274,118 @@ pub fn fetchOrigin(allocator: std.mem.Allocator, io: std.Io, path: std.Io.Dir) !
     }
 }
 
+pub fn setLogAllRef(allocator: std.mem.Allocator, io: std.Io, path: std.Io.Dir) !void {
+    const _path = try path.realPathFileAlloc(io, ".", allocator);
+    defer allocator.free(_path);
+    std.log.debug("Configuring logAllRefUpdates", .{});
+    const cmd = [_][]const u8{ "git", "-C", _path, "config", "core.logallrefupdates", "true" };
+    const result = std.process.run(allocator, io, .{
+        .argv = &cmd,
+    }) catch |err| {
+        std.log.err("Failed to run git config log all ref updates: {}", .{err});
+        return err;
+    };
+    defer {
+        allocator.free(result.stdout);
+        allocator.free(result.stderr);
+    }
+
+    if (result.term.exited != 0) {
+        std.log.err("{s}", .{result.stderr});
+        return error.runtime;
+    }
+}
+
+pub fn setAutoSetupMerge(allocator: std.mem.Allocator, io: std.Io, path: std.Io.Dir) !void {
+    const _path = try path.realPathFileAlloc(io, ".", allocator);
+    defer allocator.free(_path);
+    const cmd = [_][]const u8{ "git", "-C", _path, "config", "branch.autoSetupMerge", "always" };
+    std.log.debug("Configuring autoSetupMerge", .{});
+    const result = std.process.run(allocator, io, .{
+        .argv = &cmd,
+    }) catch |err| {
+        std.log.err("Failed to run git config auto Setup Merge: {}", .{err});
+        return err;
+    };
+    defer {
+        allocator.free(result.stdout);
+        allocator.free(result.stderr);
+    }
+    if (result.term.exited != 0) {
+        std.log.err("{s}", .{result.stderr});
+        return error.runtime;
+    }
+}
+
+pub fn setLocalTracking(allocator: std.mem.Allocator, io: std.Io, path: std.Io.Dir) !void {
+    const _path = try path.realPathFileAlloc(io, ".", allocator);
+    defer allocator.free(_path);
+
+    const branch_cmd = [_][]const u8{ "git", "-C", _path, "branch", "--format=%(refname:short)" };
+    std.log.debug("Getting list of git branches", .{});
+    const branch_result = std.process.run(allocator, io, .{
+        .argv = &branch_cmd,
+    }) catch |err| {
+        std.log.err("Failed to run git branch: {}", .{err});
+        return err;
+    };
+
+    defer {
+        allocator.free(branch_result.stderr);
+        allocator.free(branch_result.stdout);
+    }
+    if (branch_result.term.exited != 0) {
+        std.log.err("{s}", .{branch_result.stderr});
+        return error.runtime;
+    }
+
+    var iter = std.mem.splitScalar(u8, branch_result.stdout, '\n');
+    while (iter.next()) |line| {
+        if (line.len == 0) continue;
+        std.log.debug("Working with branch: {s}", .{line});
+
+        const remote = try std.fmt.allocPrint(allocator, "branch.{s}.remote", .{line});
+        defer allocator.free(remote);
+
+        const merge = try std.fmt.allocPrint(allocator, "branch.{s}.merge", .{line});
+        defer allocator.free(merge);
+
+        const head = try std.fmt.allocPrint(allocator, "refs/heads/{s}", .{line});
+        defer allocator.free(head);
+
+        const remote_cmd = [_][]const u8{ "git", "-C", _path, "config", remote, "origin" };
+        const merge_cmd = [_][]const u8{ "git", "-C", _path, "config", merge, head };
+
+        std.log.debug("Setting up remotes for origin", .{});
+        const remote_result = std.process.run(allocator, io, .{ .argv = &remote_cmd }) catch |err| {
+            std.log.err("Failed to run git config {s} origin", .{remote});
+            return err;
+        };
+        defer {
+            allocator.free(remote_result.stderr);
+            allocator.free(remote_result.stdout);
+        }
+        if (remote_result.term.exited != 0) {
+            std.log.err("{s}", .{remote_result.stderr});
+            return error.runtime;
+        }
+
+        std.log.debug("Setting up merge configuration", .{});
+        const merge_result = std.process.run(allocator, io, .{ .argv = &merge_cmd }) catch |err| {
+            std.log.err("Failed to run git config {s} {s}", .{ merge, head });
+            return err;
+        };
+        defer {
+            allocator.free(merge_result.stderr);
+            allocator.free(merge_result.stdout);
+        }
+        if (merge_result.term.exited != 0) {
+            std.log.err("{s}", .{merge_result.stderr});
+            return error.runtime;
+        }
+    }
+}
+
 test "input parsing GitHub" {
     const input = "git@github.com:Boomatang/git-grab.git";
     const expect = Project{
