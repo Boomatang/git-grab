@@ -239,7 +239,23 @@ fn worktree(allocator: std.mem.Allocator, io: std.Io, project: grab.Project, opt
             std.log.err("unhandled error: {any}", .{err});
             return err;
         };
+
+        grab.setLogAllRef(allocator, io, root) catch |err| {
+            std.log.err("unhandled error: {any}", .{err});
+            return err;
+        };
+
+        grab.setAutoSetupMerge(allocator, io, root) catch |err| {
+            std.log.err("unhandled error: {any}", .{err});
+            return err;
+        };
+
         grab.fetchOrigin(allocator, io, root) catch |err| {
+            std.log.err("unhandled error: {any}", .{err});
+            return err;
+        };
+
+        grab.setLocalTracking(allocator, io, root) catch |err| {
             std.log.err("unhandled error: {any}", .{err});
             return err;
         };
