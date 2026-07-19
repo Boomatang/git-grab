@@ -1,0 +1,3 @@
+kind: Added
+body: A configuration file can now be configured to store a number of common setting. Create the configuration file using the `--init` flag.
+time: 2026-08-01T15:24:58.621532877+01:00

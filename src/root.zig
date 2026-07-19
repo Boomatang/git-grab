@@ -1,5 +1,11 @@
 const std = @import("std");
 
+const defaults = @import("defaults.zig");
+const default_config_source = @embedFile("default_config.zon");
+
+const _logging = @import("logging.zig");
+pub const logging = _logging;
+
 pub const Project = struct {
     site: []const u8,
     owner: []const u8,
@@ -59,22 +65,52 @@ pub const PathSource = union(enum) {
     none,
 };
 
+pub const ConfigurationFile = struct {
+    path: ?[]const u8 = null,
+    action: ?Action = null,
+    shallow: ?bool = null,
+    log_level: ?logging.Level = null,
+
+    pub fn deinit(self: @This(), gpa: std.mem.Allocator) void {
+        std.zon.parse.free(gpa, self);
+    }
+};
+
 pub const Configuration = struct {
     path: ?PathSource = .none,
-    action: Action = .worktree,
-    shallow: bool = false,
+    action: Action = defaults.action,
+    shallow: bool = defaults.shallow,
+    configFile: ?ConfigurationFile = null,
 
-    pub fn init() Configuration {
-        return Configuration{};
+    pub fn init(io: std.Io, gpa: std.mem.Allocator, environ: std.process.Environ) !Configuration {
+        std.log.debug("setting up configuration", .{});
+        const config_file = load_config_file(io, gpa, environ) catch |err| switch (err) {
+            error.NotFound => null,
+            else => return err,
+        };
+        if (config_file) |config| {
+            if (config.log_level) |v| logging.set_log_level(v);
+
+            return Configuration{
+                .path = if (config.path) |p| .{ .provided = p } else .none,
+                .action = if (config.action) |v| v else defaults.action,
+                .shallow = if (config.shallow) |v| v else defaults.shallow,
+                .configFile = config,
+            };
+        }
+
+        return .{};
     }
 
-    pub fn deinit(self: *Configuration, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: *Configuration, gpa: std.mem.Allocator) void {
         if (self.path) |path| {
             switch (path) {
-                .allocated => |p| allocator.free(p),
+                .allocated => |p| gpa.free(p),
                 .provided, .none => {},
             }
         }
+
+        if (self.configFile) |configFile| configFile.deinit(gpa);
     }
 
     pub fn getPath(self: *const Configuration) ?[]const u8 {
@@ -86,6 +122,96 @@ pub const Configuration = struct {
         };
     }
 };
+
+fn load_config_file(io: std.Io, gpa: std.mem.Allocator, environ: std.process.Environ) !ConfigurationFile {
+    const xdg_config_home = environ.getPosix("XDG_CONFIG_HOME") orelse "";
+    const owns_path = xdg_config_home.len == 0;
+    const path: []const u8 = if (xdg_config_home.len > 0) xdg_config_home else try userPath(gpa, environ);
+    defer if (owns_path) gpa.free(path);
+
+    const config_file_path = try std.fmt.allocPrint(gpa, "{s}/grab/config.zon", .{path});
+    defer gpa.free(config_file_path);
+    if (!pathIsFile(io, config_file_path)) {
+        std.log.debug("No existing configuration file found at {s}", .{config_file_path});
+        return error.NotFound;
+    }
+
+    const cwd = std.Io.Dir.cwd();
+    const file = try cwd.openFile(io, config_file_path, .{ .mode = .read_only });
+    defer file.close(io);
+
+    const size: usize = @intCast(try file.length(io));
+    const buffer = try gpa.allocSentinel(u8, size, 0);
+    defer gpa.free(buffer);
+
+    _ = try file.readPositionalAll(io, buffer[0..size], 0);
+
+    var diag: std.zon.parse.Diagnostics = .{};
+    defer diag.deinit(gpa);
+
+    const config = std.zon.parse.fromSliceAlloc(ConfigurationFile, gpa, buffer, &diag, .{}) catch |err| {
+        std.log.err("Failed to parse {s}: {}", .{ config_file_path, err });
+        std.log.err("{f}", .{diag});
+        return err;
+    };
+
+    return config;
+}
+
+pub fn init(io: std.Io, gpa: std.mem.Allocator, environ: std.process.Environ) !void {
+    // set up root configuration path
+    const xdg_config_home = environ.getPosix("XDG_CONFIG_HOME") orelse "";
+    const owns_path = xdg_config_home.len == 0;
+    const path: []const u8 = if (xdg_config_home.len > 0) xdg_config_home else try userPath(gpa, environ);
+    defer if (owns_path) gpa.free(path);
+
+    // Check if root configuration path exits
+    if (!pathIsDir(io, path)) {
+        std.log.err("Root configuration path does not exist. '{s}'", .{path});
+        return error.PathNotFound;
+    }
+    std.log.debug("using root configuration path of '{s}'", .{path});
+
+    // Create path to configuration file
+    const config_path = try std.fmt.allocPrint(gpa, "{s}/grab", .{path});
+    defer gpa.free(config_path);
+
+    const config_file_path = try std.fmt.allocPrint(gpa, "{s}/config.zon", .{config_path});
+    defer gpa.free(config_file_path);
+    // Check if configuration file exist
+    if (pathIsFile(io, config_file_path)) {
+        std.log.warn("Existing configuration file found: {s}", .{config_file_path});
+        return;
+    }
+
+    // Create the config directory
+    const cwd = std.Io.Dir.cwd();
+    cwd.createDir(io, config_path, .default_dir) catch |err| switch (err) {
+        error.PathAlreadyExists => {},
+        else => return err,
+    };
+
+    const file = try cwd.createFile(io, config_file_path, .{});
+    defer file.close(io);
+    try file.writePositionalAll(io, default_config_source, 0);
+
+    std.log.info("Configuration file created, see {s} for configuration options", .{config_file_path});
+}
+
+fn userPath(gpa: std.mem.Allocator, environ: std.process.Environ) ![]const u8 {
+    const home = environ.getPosix("HOME") orelse "";
+    if (home.len > 0) return try std.fmt.allocPrint(gpa, "{s}/.config", .{home}) else return error.NoHomeFound;
+}
+
+fn pathIsDir(io: std.Io, path: []const u8) bool {
+    const stat = std.Io.Dir.cwd().statFile(io, path, .{}) catch return false;
+    return stat.kind == .directory;
+}
+
+fn pathIsFile(io: std.Io, path: []const u8) bool {
+    const stat = std.Io.Dir.cwd().statFile(io, path, .{}) catch return false;
+    return stat.kind == .file;
+}
 
 pub fn clone(allocator: std.mem.Allocator, io: std.Io, project: Project, opts: CloneOptions) !void {
     std.log.debug("cloning: {s}", .{project.name});

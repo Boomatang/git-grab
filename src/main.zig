@@ -3,31 +3,11 @@ const clap = @import("clap");
 const grab = @import("grab");
 const help = @import("help.zig");
 
-pub const Level = enum { info, debug, @"error", warn };
 pub const std_options: std.Options = .{
     // Keep compile-time logging permissive; runtime filter in `log`.
     .log_level = .debug,
-    .logFn = log,
+    .logFn = grab.logging.log,
 };
-
-pub var log_level: std.log.Level = .info;
-
-pub fn log(
-    comptime level: std.log.Level,
-    comptime scope: @EnumLiteral(),
-    comptime format: []const u8,
-    args: anytype,
-) void {
-    const prefix = comptime blk: {
-        if (scope == .default)
-            break :blk "[" ++ level.asText() ++ "] ";
-        break :blk "[" ++ level.asText() ++ "][" ++ @tagName(scope) ++ "] ";
-    };
-
-    if (@intFromEnum(level) <= @intFromEnum(log_level)) {
-        std.debug.print(prefix ++ format ++ "\n", args);
-    }
-}
 
 pub fn main(init: std.process.Init) !void {
     const allocator = init.gpa;
@@ -42,12 +22,13 @@ pub fn main(init: std.process.Init) !void {
         \\-r, --remote     Add remote to existing repo.
         \\--log-level <LEVEL> Set the log level. All logs are saved to file. Possible values are (debug, info, warn, error). Defualt level is info.
         \\--version        Show program's version number and exit
+        \\--init    Create a configuration file
     );
 
     const parsers = comptime .{
         .PATH = clap.parsers.string,
         .REPO = clap.parsers.string,
-        .LEVEL = clap.parsers.enumeration(Level),
+        .LEVEL = clap.parsers.enumeration(grab.logging.Level),
     };
 
     var diag = clap.Diagnostic{};
@@ -61,6 +42,15 @@ pub fn main(init: std.process.Init) !void {
     };
     defer res.deinit();
 
+    // Load configuration first to ensure the correct log level is set.
+    var config = try grab.Configuration.init(init.io, init.gpa, init.minimal.environ);
+    defer config.deinit(allocator);
+
+    // Set up logger
+    if (res.args.@"log-level") |l| {
+        grab.logging.set_log_level(l);
+    }
+
     if (res.args.help != 0)
         return clap.helpToFile(init.io, .stderr(), clap.Help, &params, .{});
     if (res.args.version != 0) {
@@ -69,20 +59,9 @@ pub fn main(init: std.process.Init) !void {
         std.process.exit(0);
     }
 
-    var config = grab.Configuration.init();
-    defer config.deinit(allocator);
-
-    // Set up logger
-    var level = Level.info;
-    if (res.args.@"log-level") |l| {
-        level = l;
-    }
-
-    switch (level) {
-        .debug => log_level = std.log.Level.debug,
-        .@"error" => log_level = std.log.Level.err,
-        .info => log_level = std.log.Level.info,
-        .warn => log_level = std.log.Level.warn,
+    if (res.args.init != 0) {
+        try grab.init(init.io, init.gpa, init.minimal.environ);
+        return;
     }
 
     if (res.args.temp != 0 and res.args.path != null) {
@@ -107,17 +86,17 @@ pub fn main(init: std.process.Init) !void {
         config.path = .{ .provided = path };
         std.log.info("using {s} as path", .{path});
     } else {
-        const path = init.minimal.environ.getPosix("GRAB_PATH") orelse {
-            std.log.err("unable to get GRAB_PATH, please set or use --temp or --path", .{});
-            std.process.exit(1);
-        };
+        const path = init.minimal.environ.getPosix("GRAB_PATH") orelse "";
 
-        if (path.len == 0) {
-            std.log.err("unable to get GRAB_PATH, please set or use --temp or --path", .{});
-            std.process.exit(1);
+        if (path.len != 0) {
+            config.path = .{ .provided = path };
+            std.log.debug("Using path from env var", .{});
         }
-        config.path = .{ .provided = path };
-        std.log.debug("try to get path from env", .{});
+    }
+
+    if (config.getPath() == null) {
+        std.log.err("No path source path found, please set path in config file, see --init, set GRAB_PATH env var or use --temp or --path", .{});
+        std.process.exit(1);
     }
     if (res.args.remote != 0) {
         config.action = .remote;
