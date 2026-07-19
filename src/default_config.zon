@@ -1,0 +1,14 @@
+.{
+    //Default clone path
+    //Setting `GRAB_PATH` env var overrides
+    //.path = "path/to/source",
+
+    //Default clone mode (.worktree or .standard)
+    .action = .worktree,
+
+    //Create shallow clones by default
+    .shallow = false,
+
+    //Default log level (.debug, .info, .warn, .error)
+    .log_level = .info,
+}
