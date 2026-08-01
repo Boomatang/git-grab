@@ -14,36 +14,52 @@ pub const Project = struct {
     root: ?std.Io.Dir = null,
 
     pub fn init(repo: []const u8) !Project {
-        if (!std.mem.endsWith(u8, repo, ".git")) {
-            return error.parse;
-        }
-        var split_on = ":";
+        if (!std.mem.endsWith(u8, repo, ".git")) return error.parse;
+
+        var split_on: []const u8 = undefined;
+        var protocol_split: []const u8 = undefined;
         var min: usize = undefined;
         var max: usize = undefined;
-        if (std.mem.startsWith(u8, repo, "git")) {
-            std.log.debug("possible GitHub repo", .{});
-            split_on = ":";
-        } else if (std.mem.startsWith(u8, repo, "ssh://git")) {
-            std.log.debug("possible Codeberg repo", .{});
-            split_on = "/";
-        } else {
-            return error.parse;
-        }
+        var site_offset: usize = undefined;
 
         const _clone = repo;
 
-        min = std.mem.indexOf(u8, repo, "@") orelse return error.parse;
-        max = std.mem.indexOfPos(u8, repo, min, split_on) orelse return error.parse;
-        const _site = repo[min + 1 .. max];
+        const at_symbol_index = std.mem.find(u8, repo, "@");
+        if (at_symbol_index) |_| {
+            // "git@github.com:Boomatang/git-grab.git";
+            // "ssh://git@codeberg.org/boomatang/boomatang.git";
+            if (std.mem.startsWith(u8, repo, "git")) {
+                std.log.debug("possible GitHub repo", .{});
+                split_on = ":";
+            } else if (std.mem.startsWith(u8, repo, "ssh://git")) {
+                std.log.debug("possible Codeberg repo", .{});
+                split_on = "/";
+            } else {
+                return error.parse;
+            }
+            protocol_split = "@";
+            site_offset = 1;
+        } else {
+            // "https://github.com/Boomatang/git-grab.git";
+            // "http://codeberg.org/boomatang/boomatang.git";
+            if (!std.mem.startsWith(u8, repo, "http")) return error.parse;
+            split_on = "/";
+            protocol_split = "://";
+            site_offset = 0;
+        }
+
+        min = std.mem.find(u8, repo, protocol_split) orelse return error.parse;
+        if (protocol_split.len > 1) min += protocol_split.len;
+        max = std.mem.findPos(u8, repo, min, split_on) orelse return error.parse;
+        const _site = repo[min + site_offset .. max];
 
         min = max;
-        max = std.mem.indexOfPos(u8, repo, min + 1, "/") orelse return error.parse;
+        max = std.mem.findPos(u8, repo, min + 1, "/") orelse return error.parse;
         const _owner = repo[min + 1 .. max];
 
         min = max;
-        max = std.mem.indexOf(u8, repo, ".git") orelse return error.parse;
+        max = std.mem.findLast(u8, repo, ".git") orelse return error.parse;
         const _name = repo[min + 1 .. max];
-
         return Project{ .site = _site, .owner = _owner, .name = _name, .clone = _clone };
     }
 };
@@ -551,4 +567,72 @@ test "input parsing Bad Input" {
     const input = "@codeberg.org/boomatang/boomatang.git";
 
     try std.testing.expectError(error.parse, Project.init(input));
+}
+
+test "input parsing GitHub http" {
+    const input = "https://github.com/Boomatang/git-grab.git";
+    const expect = Project{
+        .clone = input,
+        .name = "git-grab",
+        .owner = "Boomatang",
+        .site = "github.com",
+    };
+
+    const project = try Project.init(input);
+
+    try std.testing.expectEqualStrings(expect.site, project.site);
+    try std.testing.expectEqualStrings(expect.owner, project.owner);
+    try std.testing.expectEqualStrings(expect.name, project.name);
+    try std.testing.expectEqualStrings(expect.clone, project.clone);
+}
+
+test "input parsing codeberg http" {
+    const input = "http://codeberg.org/boomatang/boomatang.git";
+    const expect = Project{
+        .clone = input,
+        .name = "boomatang",
+        .owner = "boomatang",
+        .site = "codeberg.org",
+    };
+
+    const project = try Project.init(input);
+
+    try std.testing.expectEqualStrings(expect.site, project.site);
+    try std.testing.expectEqualStrings(expect.owner, project.owner);
+    try std.testing.expectEqualStrings(expect.name, project.name);
+    try std.testing.expectEqualStrings(expect.clone, project.clone);
+}
+
+test "input parsing short url" {
+    const input = "ssh://git@gogs.io/user/repo.git";
+    const expect = Project{
+        .clone = input,
+        .name = "repo",
+        .owner = "user",
+        .site = "gogs.io",
+    };
+
+    const project = try Project.init(input);
+
+    try std.testing.expectEqualStrings(expect.site, project.site);
+    try std.testing.expectEqualStrings(expect.owner, project.owner);
+    try std.testing.expectEqualStrings(expect.name, project.name);
+    try std.testing.expectEqualStrings(expect.clone, project.clone);
+}
+
+test "input parsing .git in project name" {
+    const input = "https://github.com/user/.github.git";
+    const expect = Project{
+        .clone = input,
+        .name = ".github",
+        .owner = "user",
+        .site = "github.com",
+    };
+
+    const project = try Project.init(input);
+
+    try std.testing.expectEqualStrings(expect.site, project.site);
+    try std.testing.expectEqualStrings(expect.owner, project.owner);
+    try std.testing.expectEqualStrings(expect.name, project.name);
+    try std.testing.expectEqualStrings(expect.clone, project.clone);
 }
