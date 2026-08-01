@@ -1,6 +1,8 @@
 const std = @import("std");
 const clap = @import("clap");
 const grab = @import("grab");
+const build_options = @import("build_options");
+
 const help = @import("help.zig");
 
 pub const std_options: std.Options = .{
@@ -47,22 +49,22 @@ pub fn main(init: std.process.Init) !void {
     defer config.deinit(allocator);
 
     // Set up logger
-    if (res.args.@"log-level") |l| {
-        grab.logging.set_log_level(l);
-    }
+    if (res.args.@"log-level") |l| grab.logging.set_log_level(l);
 
-    if (res.args.help != 0)
-        return clap.helpToFile(init.io, .stderr(), clap.Help, &params, .{});
-    if (res.args.version != 0) {
-        const build_options = @import("build_options");
-        std.log.info("{s}: {s}", .{ build_options.name, build_options.version });
-        std.process.exit(0);
-    }
+    if (res.args.help != 0) return clap.helpToFile(
+        init.io,
+        .stderr(),
+        clap.Help,
+        &params,
+        .{},
+    );
 
-    if (res.args.init != 0) {
-        try grab.init(init.io, init.gpa, init.minimal.environ);
-        return;
-    }
+    if (res.args.version != 0) return std.log.info(
+        "{s}: {s}",
+        .{ build_options.name, build_options.version },
+    );
+
+    if (res.args.init != 0) return try grab.init(init.io, init.gpa, init.minimal.environ);
 
     if (res.args.temp != 0 and res.args.path != null) {
         std.log.err("Cannot specify both --temp and --path", .{});
@@ -98,17 +100,10 @@ pub fn main(init: std.process.Init) !void {
         std.log.err("No path source path found, please set path in config file, see --init, set GRAB_PATH env var or use --temp or --path", .{});
         std.process.exit(1);
     }
-    if (res.args.remote != 0) {
-        config.action = .remote;
-    }
 
-    if (res.args.standard != 0) {
-        config.action = .standard;
-    }
-
-    if (res.args.shallow != 0) {
-        config.shallow = true;
-    }
+    config.action = if (res.args.remote != 0) .remote else config.action;
+    config.action = if (res.args.standard != 0) .standard else config.action;
+    config.shallow = if (res.args.shallow != 0) true else config.shallow;
 
     try grab.setLocation(init.io, config);
 
@@ -139,7 +134,11 @@ pub fn main(init: std.process.Init) !void {
         }
     }
     std.log.info("Finished", .{});
-    if (run_failure) std.process.exit(1);
+    if (run_failure) {
+        std.log.warn("Finished with errors", .{});
+        std.process.exit(1);
+    }
+    std.log.info("Finished", .{});
 }
 
 const gitOpts = struct { shallow: bool = false };

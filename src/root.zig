@@ -116,8 +116,7 @@ pub const Configuration = struct {
     pub fn getPath(self: *const Configuration) ?[]const u8 {
         const path = self.path orelse return null;
         return switch (path) {
-            .provided => |p| p,
-            .allocated => |p| p,
+            .provided, .allocated => |p| p,
             .none => null,
         };
     }
@@ -238,12 +237,17 @@ pub fn clone(allocator: std.mem.Allocator, io: std.Io, project: Project, opts: C
         return err;
     };
 
-    defer allocator.free(result.stdout);
-    defer allocator.free(result.stderr);
+    defer {
+        allocator.free(result.stdout);
+        allocator.free(result.stderr);
+    }
     if (std.mem.startsWith(u8, result.stderr, "fatal")) {
-        if (std.mem.endsWith(u8, result.stderr, "already exists and is not an empty directory.\n")) {
-            return error.exists;
-        }
+        if (std.mem.endsWith(
+            u8,
+            result.stderr,
+            "already exists and is not an empty directory.\n",
+        )) return error.exists;
+
         std.log.err("{s}", .{result.stderr});
         return error.unknown;
     }
@@ -303,8 +307,7 @@ fn isGitRepo(io: std.Io, path: []const u8) !bool {
     for (subPaths) |p| {
         var isRepo = true;
         _ = cwd.openDir(io, p, .{}) catch |err| switch (err) {
-            error.NotDir => isRepo = false,
-            error.FileNotFound => isRepo = false,
+            error.NotDir, error.FileNotFound => isRepo = false,
             else => return err,
         };
         if (isRepo) return isRepo;
@@ -327,12 +330,10 @@ pub fn addRemote(allocator: std.mem.Allocator, io: std.Io, project: Project, pat
     }
 
     var output = std.mem.splitSequence(u8, checkResult.stdout, "\n");
-    var value = output.first();
-    while (true) {
+    while (output.next()) |value| {
         if (std.mem.eql(u8, value, project.owner)) {
             return error.RemoteExists;
         }
-        value = output.next() orelse break;
     }
 
     const addCmd = [_][]const u8{ "git", "-C", path, "remote", "add", project.owner, project.clone };
@@ -425,7 +426,7 @@ pub fn setLogAllRef(allocator: std.mem.Allocator, io: std.Io, path: std.Io.Dir) 
 pub fn setAutoSetupMerge(allocator: std.mem.Allocator, io: std.Io, path: std.Io.Dir) !void {
     const _path = try path.realPathFileAlloc(io, ".", allocator);
     defer allocator.free(_path);
-    const cmd = [_][]const u8{ "git", "-C", _path, "config", "branch.autoSetupMerge", "always" };
+    const cmd = [_][]const u8{ "git", "-C", _path, "config", "branch.autoSetupMerge", "true" };
     std.log.debug("Configuring autoSetupMerge", .{});
     const result = std.process.run(allocator, io, .{
         .argv = &cmd,
@@ -482,7 +483,7 @@ pub fn setLocalTracking(allocator: std.mem.Allocator, io: std.Io, path: std.Io.D
         const remote_cmd = [_][]const u8{ "git", "-C", _path, "config", remote, "origin" };
         const merge_cmd = [_][]const u8{ "git", "-C", _path, "config", merge, head };
 
-        std.log.debug("Setting up remotes for origin", .{});
+        std.log.debug("[{s}] Setting up remotes for origin", .{remote});
         const remote_result = std.process.run(allocator, io, .{ .argv = &remote_cmd }) catch |err| {
             std.log.err("Failed to run git config {s} origin", .{remote});
             return err;
@@ -496,7 +497,7 @@ pub fn setLocalTracking(allocator: std.mem.Allocator, io: std.Io, path: std.Io.D
             return error.runtime;
         }
 
-        std.log.debug("Setting up merge configuration", .{});
+        std.log.debug("[{s}] Setting up merge configuration", .{remote});
         const merge_result = std.process.run(allocator, io, .{ .argv = &merge_cmd }) catch |err| {
             std.log.err("Failed to run git config {s} {s}", .{ merge, head });
             return err;
